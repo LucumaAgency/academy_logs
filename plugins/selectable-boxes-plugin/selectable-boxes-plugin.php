@@ -64,8 +64,7 @@ function selectable_boxes_shortcode() {
                 </div>
                 <h3>Join Waitlist for Free</h3>
                 <p class="description">Gain access to live streams, free credits for Arcana, and more.</p>
-                <input type="email" placeholder="Your email address" class="email-input">
-                <button class="join-waitlist">Join Waitlist</button>
+                [contact-form-7 id="255b390" title="Course Launch"]
                 <p class="terms">By signing up, you agree to the Terms & Conditions.</p>
             </div>
         <?php else : ?>
