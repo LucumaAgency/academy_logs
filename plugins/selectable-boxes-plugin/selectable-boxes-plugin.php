@@ -52,8 +52,7 @@ function selectable_boxes_shortcode() {
                 <div class="soldout-header"><span>THE COURSE IS SOLD OUT</span></div>
                 <h3>Join Waitlist for Free</h3>
                 <p class="description">Gain access to live streams, free credits for Arcana, and more.</p>
-                <input type="email" placeholder="Your email address" class="email-input">
-                <button class="join-waitlist">Join Waitlist</button>
+                [contact-form-7 id="c2b4e27" title="Course Sold Out"]
                 <p class="terms">By signing up, you agree to the Terms & Conditions.</p>
             </div>
         <?php elseif (empty($course_product_link)) : ?>
@@ -69,46 +68,76 @@ function selectable_boxes_shortcode() {
             </div>
         <?php else : ?>
             <div class="box selected buy-course" onclick="selectBox(this, 'box1')">
+                        <div class="statebox">
+            <div class="circlecontainer">
+              <div class="outer-circle">
+                <div class="middle-circle">
+                  <div class="inner-circle"></div>
+                </div>
+              </div>
+            </div>
+
+                      <div>
                 <h3>Buy This Course</h3>
                 <p class="price">$<?php echo esc_html(number_format($course_price, 2)); ?> USD</p>
                 <p class="description">Pay once, own the course forever.</p>
+          </div>
+        </div>
+
                 <button class="add-to-cart-button" data-product-id="<?php echo esc_attr($course_product_id); ?>">Buy Course</button>
             </div>
 
             <div class="box no-button enroll-course" onclick="selectBox(this, 'box2')">
-                <h3>Enroll in the Live Course</h3>
-                <p class="price">$<?php echo esc_html(number_format($enroll_price, 2)); ?> USD</p>
-                <p class="description">Take the live course over 6 weeks. Pay once.</p>
+      <div class="statebox">
+         <div class="circle-container">
+            <div class="circle"></div>
+         </div>
+         <div>
+            <h3>Enroll in the Live Course</h3>
+            <p class="price">$<?php echo esc_html(number_format($enroll_price, 2)); ?> USD</p>
+            <p class="description">Take the live course over 6 weeks. Pay once.</p>
+         </div>
+      </div>
+
+
+
+
 
                 <hr class="divider">
 
-                <div class="start-dates">
-                    <p class="choose-label">Choose a starting date</p>
-                    <div class="date-options">
-                        <?php
-                        if (have_rows('field_6826dd2179231')) {
-                            while (have_rows('field_6826dd2179231')) {
-                                the_row();
-                                $date = get_sub_field('date'); // Assuming 'date' is the subfield name in the repeater
-                                if ($date) {
-                                    $formatted_date = date_i18n('j M', strtotime($date));
-                                    echo '<button class="date-btn">' . esc_html($formatted_date) . '</button>';
-                                }
-                            }
-                        } else {
-                            // Fallback static dates if repeater is empty
-                            echo '
-                                <button class="date-btn">5 May</button>
-                                <button class="date-btn">12 May</button>
-                                <button class="date-btn">19 May</button>
-                                <button class="date-btn">26 May</button>
-                                <button class="date-btn">2 June</button>
-                            ';
-                        }
-                        ?>
-                    </div>
-                    <p class="description">All live courses will be recorded and available as VOD.</p>
-                </div>
+               <div class="start-dates">
+    <p class="choose-label">Choose a starting date</p>
+    <div class="date-options">
+        <?php
+        if (have_rows('field_682a572f53f64')) { // Recorriendo el repeater correctamente
+            while (have_rows('field_682a572f53f64')) {
+                the_row();
+                $date_text = get_sub_field('field_682a574e53f65'); // Obtener el valor del campo dentro del repeater
+                
+                // Depuración para verificar valores obtenidos
+                error_log('Fecha obtenida: ' . print_r($date_text, true));
+
+                if (!empty($date_text)) {
+                    echo '<button class="date-btn">' . esc_html($date_text) . '</button>';
+                }
+            }
+        } else {
+            error_log('El repeater field_682a572f53f64 está vacío o no existe.');
+
+            // Fechas estáticas si el repeater está vacío
+            echo '
+                <button class="date-btn">5 Mayo</button>
+                <button class="date-btn">12 Mayo</button>
+                <button class="date-btn">19 Mayo</button>
+                <button class="date-btn">26 Mayo</button>
+                <button class="date-btn">2 Junio</button>
+            ';
+        }
+        ?>
+    </div>
+    <p class="description">All live courses will be recorded and available as VOD.</p>
+</div>
+
 
                 <button class="add-to-cart-button" data-product-id="<?php echo esc_attr($enroll_product_id); ?>">Register Now</button>
             </div>
@@ -153,7 +182,8 @@ function selectable_boxes_shortcode() {
 
     .box h3 {
         color: #fff;
-        margin: 5px 0 10px;
+        margin-left:10px;
+        margin-top: 0px;
         font-size: 1.5em;
     }
 
@@ -259,6 +289,60 @@ function selectable_boxes_shortcode() {
     .box.selected .start-dates {
         display: block;
     }
+
+    .statebox{
+  display:flex;
+}
+
+.outer-circle {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background-color: #DE04A4;
+      border: 1.45px solid #DE04A4;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .middle-circle {
+      width: 11.77px; /* 5.88477 * 2 */
+      height: 11.77px;
+      border-radius: 50%;
+      background-color: #050505;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .inner-circle {
+      width: 6.16px; /* 3.08203 * 2 */
+      height: 6.16px;
+      border-radius: 50%;
+      background-color: #DE04A4;
+    }
+
+.circlecontainer{
+  margin:6px 7px;
+}
+		
+		.circle-container {
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .circle {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 2px solid rgba(155, 159, 170, 0.24);
+      box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
+    }
+
+
 
     @keyframes fadeIn {
         from {
