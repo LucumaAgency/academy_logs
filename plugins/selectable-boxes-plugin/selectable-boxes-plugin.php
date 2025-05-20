@@ -2,7 +2,7 @@
 /*
 Plugin Name: Selectable Boxes Plugin
 Description: A plugin to create selectable boxes for courses with live course date options.
-Version: 1.10
+Version: 1.14
 Author: Carlos Murillo
 */
 
