@@ -219,7 +219,7 @@ function selectable_boxes_shortcode() {
     border: none;
     border-radius: 4px;
     color: white;
-    font-size: 1em;
+    font-size:12px;
     cursor: pointer;
 }
 
@@ -378,12 +378,14 @@ function selectable_boxes_shortcode() {
 
 .box-container .date-options {
     display: flex;
+    flex-wrap: wrap;
     gap: 4px;
+    justify-content: flex-start;
 }
 
 .box-container .date-btn {
-    padding: 8px 16px;
-    font-size: 14px;
+    width:68px!important;
+    padding: 5px 8px;
     border: none;
     border-radius: 25px;
     background-color: rgba(255, 255, 255, 0.08);
@@ -398,11 +400,6 @@ function selectable_boxes_shortcode() {
 
 .box-container .date-btn.selected {
     background-color: #cc3071;
-}
-
-.box-container .buy-course,
-.box-container .enroll-course {
-    background: black;
 }
 
 .box-container .soldout-course,
