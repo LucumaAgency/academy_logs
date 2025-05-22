@@ -2,7 +2,7 @@
 /*
 Plugin Name: Selectable Boxes Plugin
 Description: A plugin to create selectable boxes for courses with live course date options and dynamic launch countdown.
-Version: 1.14
+Version: 1.17
 Author: Carlos Murillo
 */
 
@@ -63,7 +63,7 @@ function selectable_boxes_shortcode() {
             <div class="box course-launch">
                 <div class="countdown">
                     <span>COURSE LAUNCH IN:</span>
-                    <span id="countdown-timer" data-launch-date="<?php echo esc_attr($launch_date); ?>">
+                    <div class="countdown-timer" id="countdown-timer" data-launch-date="<?php echo esc_attr($launch_date); ?>">
                         <?php
                         if ($show_countdown) {
                             $time_diff = strtotime($launch_date) - current_time('timestamp');
@@ -71,12 +71,29 @@ function selectable_boxes_shortcode() {
                             $hours = floor(($time_diff % (60 * 60 * 24)) / (60 * 60));
                             $minutes = floor(($time_diff % (60 * 60)) / 60);
                             $seconds = $time_diff % 60;
-                            echo esc_html(sprintf('%02d DAYS %02d HRS %02d MIN %02d SEC', $days, $hours, $minutes, $seconds));
+                            ?>
+                            <div class="time-unit" data-unit="days">
+                                <span class="time-value"><?php echo esc_html(sprintf('%02d', $days)); ?></span>
+                                <span class="time-label">days</span>
+                            </div>
+                            <div class="time-unit" data-unit="hours">
+                                <span class="time-value"><?php echo esc_html(sprintf('%02d', $hours)); ?></span>
+                                <span class="time-label">hrs</span>
+                            </div>
+                            <div class="time-unit" data-unit="minutes">
+                                <span class="time-value"><?php echo esc_html(sprintf('%02d', $minutes)); ?></span>
+                                <span class="time-label">min</span>
+                            </div>
+                            <div class="time-unit" data-unit="seconds">
+                                <span class="time-value"><?php echo esc_html(sprintf('%02d', $seconds)); ?></span>
+                                <span class="time-label">sec</span>
+                            </div>
+                            <?php
                         } else {
-                            echo 'Launching Soon';
+                            echo '<span class="launch-soon">Launching Soon</span>';
                         }
                         ?>
-                    </span>
+                    </div>
                 </div>
                 <h3>Join Waitlist for Free</h3>
                 <p class="description">Gain access to live streams, free credits for Arcana, and more.</p>
@@ -255,6 +272,9 @@ function selectable_boxes_shortcode() {
     padding: 10px;
     border-radius: 10px;
     margin-bottom: 10px;
+    display: flex;
+    justify-content: center;
+    gap: 15px;
 }
 
 .box-container .countdown span:first-child {
@@ -265,6 +285,34 @@ function selectable_boxes_shortcode() {
 .box-container .countdown span:last-child {
     font-size: 1.5em;
     font-weight: bold;
+}
+
+.box-container .countdown-timer {
+    display: flex;
+    gap: 15px;
+}
+
+.box-container .time-unit {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.box-container .time-value {
+    font-size: 1.5em;
+    font-weight: bold;
+    line-height: 1.2;
+}
+
+.box-container .time-label {
+    font-size: 0.9em;
+    text-transform: lowercase;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.box-container .countdown span:first-child {
+    display: none; /* Hide the original "COURSE LAUNCH IN:" text */
 }
 
 .box-container .email-input {
@@ -407,6 +455,16 @@ function selectable_boxes_shortcode() {
     background: black;
 }
 
+.box-container .countdown .countdown-timer .time-unit span.time-value {
+    display: block !important;
+    color: #ffffff !important;
+    font-size: 1.5em !important;
+    font-weight: bold !important;
+    line-height: 1.2 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
 @keyframes fadeIn {
     from {
         opacity: 0;
@@ -528,14 +586,25 @@ function selectable_boxes_shortcode() {
                 const now = new Date().getTime();
                 const timeDiff = launchDate - now;
                 if (timeDiff <= 0) {
-                    countdownElement.textContent = 'Launched!';
+                    countdownElement.innerHTML = '<span class="launch-soon">Launched!</span>';
                     return;
                 }
                 const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
                 const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
                 const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
                 const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
-                countdownElement.textContent = `${days.toString().padStart(2, '0')} DAYS ${hours.toString().padStart(2, '0')} HRS ${minutes.toString().padStart(2, '0')} MIN ${seconds.toString().padStart(2, '0')} SEC`;
+                const timeUnits = [
+                    { unit: 'days', value: days },
+                    { unit: 'hours', value: hours },
+                    { unit: 'minutes', value: minutes },
+                    { unit: 'seconds', value: seconds }
+                ];
+                timeUnits.forEach(({ unit, value }) => {
+                    const element = countdownElement.querySelector(`.time-unit[data-unit="${unit}"] .time-value`);
+                    if (element) {
+                        element.textContent = `${value.toString().padStart(2, '0')}`;
+                    }
+                });
             };
             updateCountdown();
             setInterval(updateCountdown, 1000);
