@@ -1,17 +1,29 @@
 <?php
 /*
 Plugin Name: Selectable Boxes Plugin
-Description: A plugin to create selectable boxes for courses with live course date options and dynamic launch countdown.
-Version: 1.17
+Description: A plugin to create selectable boxes for courses with live course date options, dynamic launch countdown, and an admin dropdown in course post type to show/hide course box.
+Version: 1.27
 Author: Carlos Murillo
 */
 
 function selectable_boxes_shortcode() {
-    $course_product_link = get_field('field_6821879221940');
-    $enroll_product_link = get_field('field_6821879e21941');
-    $course_price = get_field('field_681ccc6eb123a') ?: '749.99'; // Fetch course price directly from ACF field, fallback to 749.99
-    $enroll_price = '1249.99'; // Default fallback price for enroll course
+    global $post;
+    $post_id = $post ? $post->ID : 0;
 
+    // Fetch ACF fields
+    $course_product_link = get_field('field_6821879221940', $post_id);
+    $enroll_product_link = get_field('field_6821879e21941', $post_id);
+    $course_price = get_field('field_681ccc6eb123a', $post_id) ?: '749.99';
+    $course_visibility = get_field('field_68314e3c26394', $post_id) ?: 'don\'t show buy course';
+
+    // Debug: Log field values
+    error_log('Selectable Boxes Plugin: Post ID = ' . $post_id);
+    error_log('Selectable Boxes Plugin: course_visibility = ' . $course_visibility);
+    error_log('Selectable Boxes Plugin: course_product_link = ' . ($course_product_link ?: 'empty'));
+    error_log('Selectable Boxes Plugin: enroll_product_link = ' . ($enroll_product_link ?: 'empty'));
+    error_log('Selectable Boxes Plugin: course_price = ' . $course_price);
+
+    $enroll_price = '1249.99';
     $is_out_of_stock = false;
     $course_product_id = 0;
     $enroll_product_id = 0;
@@ -39,12 +51,12 @@ function selectable_boxes_shortcode() {
         if ($enroll_product_id && function_exists('wc_get_product')) {
             $product = wc_get_product($enroll_product_id);
             if ($product) {
-                $enroll_price = $product->get_price() ?: '1249.99'; // Fetch price from WooCommerce product, fallback to 1249.99
+                $enroll_price = $product->get_price() ?: '1249.99';
             }
         }
     }
 
-    // Get launch date for the course product
+    // Get launch date
     $launch_date = $course_product_id ? apply_filters('wc_launch_date_get', '', $course_product_id) : '';
     $show_countdown = !empty($launch_date) && strtotime($launch_date) > current_time('timestamp');
 
@@ -101,36 +113,38 @@ function selectable_boxes_shortcode() {
                 <p class="terms">By signing up, you agree to the Terms & Conditions.</p>
             </div>
         <?php else : ?>
-            <div class="box selected buy-course" onclick="selectBox(this, 'box1')">
-                <div class="statebox">
-                    <div class="circlecontainer">
-                        <div class="outer-circle">
-                            <div class="middle-circle">
-                                <div class="inner-circle"></div>
+            <?php if ($course_visibility === 'show buy course' && !empty($course_product_link)) : ?>
+                <div class="box buy-course selected" onclick="selectBox(this, 'box1')">
+                    <div class="statebox">
+                        <div class="circlecontainer" style="display: flex;">
+                            <div class="outer-circle">
+                                <div class="middle-circle">
+                                    <div class="inner-circle"></div>
+                                </div>
                             </div>
                         </div>
+                        <div class="circle-container" style="display: none;">
+                            <div class="circle"></div>
+                        </div>
+                        <div>
+                            <h3>Buy This Course</h3>
+                            <p class="price">$<?php echo esc_html(number_format($course_price, 2)); ?> USD</p>
+                            <p class="description">Pay once, own the course forever.</p>
+                        </div>
                     </div>
-                    <div class="circle-container" style="display: none;">
-                        <div class="circle"></div>
-                    </div>
-                    <div>
-                        <h3>Buy This Course</h3>
-                        <p class="price">$<?php echo esc_html(number_format($course_price, 2)); ?> USD</p>
-                        <p class="description">Pay once, own the course forever.</p>
-                    </div>
+                    <button class="add-to-cart-button" data-product-id="<?php echo esc_attr($course_product_id); ?>">Buy Course</button>
                 </div>
-                <button class="add-to-cart-button" data-product-id="<?php echo esc_attr($course_product_id); ?>">Buy Course</button>
-            </div>
-            <div class="box enroll-course" onclick="selectBox(this, 'box2')">
+            <?php endif; ?>
+            <div class="box enroll-course<?php echo $course_visibility === 'don\'t show buy course' ? ' selected' : ''; ?>" onclick="selectBox(this, 'box2')">
                 <div class="statebox">
-                    <div class="circlecontainer" style="display: none;">
+                    <div class="circlecontainer" style="display: <?php echo $course_visibility === 'don\'t show buy course' ? 'flex' : 'none'; ?>;">
                         <div class="outer-circle">
                             <div class="middle-circle">
                                 <div class="inner-circle"></div>
                             </div>
                         </div>
                     </div>
-                    <div class="circle-container">
+                    <div class="circle-container" style="display: <?php echo $course_visibility === 'don\'t show buy course' ? 'none' : 'flex'; ?>;">
                         <div class="circle"></div>
                     </div>
                     <div>
@@ -140,12 +154,12 @@ function selectable_boxes_shortcode() {
                     </div>
                 </div>
                 <hr class="divider">
-                <div class="start-dates">
+                <div class="start-dates" style="display: <?php echo $course_visibility === 'don\'t show buy course' ? 'block' : 'none'; ?>;">
                     <p class="choose-label">Choose a starting date</p>
                     <div class="date-options">
                         <?php
-                        if (have_rows('field_682a572f53f64')) {
-                            while (have_rows('field_682a572f53f64')) {
+                        if (have_rows('field_682a572f53f64', $post_id)) {
+                            while (have_rows('field_682a572f53f64', $post_id)) {
                                 the_row();
                                 $date_text = get_sub_field('field_682a574e53f65');
                                 if (!empty($date_text)) {
@@ -153,7 +167,7 @@ function selectable_boxes_shortcode() {
                                 }
                             }
                         } else {
-                            error_log('El repeater field_682a572f53f64 está vacío o no existe.');
+                            error_log('Selectable Boxes Plugin: Repeater field_682a572f53f64 is empty or does not exist for post ID ' . $post_id);
                             echo '
                                 <button class="date-btn">5 Mayo</button>
                                 <button class="date-btn">12 Mayo</button>
@@ -173,9 +187,13 @@ function selectable_boxes_shortcode() {
 
     <style>
 .box-container {
-    padding: 0px;
+    padding: 0;
     max-width: 1200px;
     margin: 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: center;
 }
 
 .box-container .box {
@@ -196,7 +214,7 @@ function selectable_boxes_shortcode() {
 .box-container .box.selected {
     background: linear-gradient(180deg, rgba(242, 46, 190, 0.2), rgba(170, 0, 212, 0.2));
     border: none;
-    padding: 16px 12px 16px 12px;
+    padding: 16px 12px;
 }
 
 .box-container .box:not(.selected) {
@@ -210,7 +228,7 @@ function selectable_boxes_shortcode() {
 .box-container .box h3 {
     color: #fff;
     margin-left: 10px;
-    margin-top: 0px;
+    margin-top: 0;
     font-size: 1.5em;
 }
 
@@ -236,7 +254,7 @@ function selectable_boxes_shortcode() {
     border: none;
     border-radius: 4px;
     color: white;
-    font-size:12px;
+    font-size: 12px;
     cursor: pointer;
 }
 
@@ -277,16 +295,6 @@ function selectable_boxes_shortcode() {
     gap: 15px;
 }
 
-.box-container .countdown span:first-child {
-    font-size: 1.2em;
-    display: block;
-}
-
-.box-container .countdown span:last-child {
-    font-size: 1.5em;
-    font-weight: bold;
-}
-
 .box-container .countdown-timer {
     display: flex;
     gap: 15px;
@@ -296,43 +304,20 @@ function selectable_boxes_shortcode() {
     display: flex;
     flex-direction: column;
     align-items: center;
-    text-align: center;
 }
 
 .box-container .time-value {
     font-size: 1.5em;
     font-weight: bold;
-    line-height: 1.2;
 }
 
 .box-container .time-label {
     font-size: 0.9em;
-    text-transform: lowercase;
     color: rgba(255, 255, 255, 0.8);
 }
 
 .box-container .countdown span:first-child {
-    display: none; /* Hide the original "COURSE LAUNCH IN:" text */
-}
-
-.box-container .email-input {
-    width: 100%;
-    padding: 10px;
-    margin: 10px 0;
-    border: 1px solid #ccc;
-    border-radius: 25px;
-    background: #333;
-    color: white;
-}
-
-.box-container .join-waitlist {
-    background-color: #ff3e8e;
-    border: none;
-    padding: 10px;
-    border-radius: 25px;
-    color: white;
-    font-size: 1em;
-    cursor: pointer;
+    display: none;
 }
 
 .box-container .terms {
@@ -399,7 +384,6 @@ function selectable_boxes_shortcode() {
     height: 14px;
     border-radius: 50%;
     border: 2px solid rgba(155, 159, 170, 0.24);
-    box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
 }
 
 .box-container .box:not(.selected) .circlecontainer {
@@ -428,61 +412,26 @@ function selectable_boxes_shortcode() {
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
-    justify-content: flex-start;
 }
 
 .box-container .date-btn {
-    width:68px!important;
+    width: 68px !important;
     padding: 5px 8px;
     border: none;
     border-radius: 25px;
     background-color: rgba(255, 255, 255, 0.08);
     color: white;
     cursor: pointer;
-    transition: background-color 0.3s ease;
 }
 
-.box-container .date-btn:hover {
-    background-color: #cc3071;
-}
-
+.box-container .date-btn:hover,
 .box-container .date-btn.selected {
     background-color: #cc3071;
 }
 
-.box-container .soldout-course,
-.box-container .course-launch {
-    background: black;
-}
-
-.box-container .countdown .countdown-timer .time-unit span.time-value {
-    display: block !important;
-    color: #ffffff !important;
-    font-size: 1.5em !important;
-    font-weight: bold !important;
-    line-height: 1.2 !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-}
-
 @keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(-5px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@media (min-width: 768px) {
-    .box-container {
-        display: flex;
-        justify-content: center;
-        flex-wrap: wrap;
-        gap: 20px;
-    }
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 @media (max-width: 767px) {
@@ -491,16 +440,6 @@ function selectable_boxes_shortcode() {
     }
     .box-container .box h3 {
         font-size: 1.2em;
-    }
-    .box-container .box .price {
-        font-size: 1em;
-    }
-    .box-container .box .description {
-        font-size: 0.8em;
-    }
-    .box-container .box button {
-        padding: 8px;
-        font-size: 0.9em;
     }
 }
     </style>
@@ -512,19 +451,33 @@ function selectable_boxes_shortcode() {
             box.classList.add('no-button');
             const circleContainer = box.querySelector('.circle-container');
             const circlecontainer = box.querySelector('.circlecontainer');
-            circleContainer.style.display = 'flex';
-            circlecontainer.style.display = 'none';
+            const startDates = box.querySelector('.start-dates');
+            if (circleContainer) circleContainer.style.display = 'flex';
+            if (circlecontainer) circlecontainer.style.display = 'none';
+            if (startDates) startDates.style.display = 'none';
         });
         element.classList.add('selected');
         element.classList.remove('no-button');
         const selectedCircleContainer = element.querySelector('.circle-container');
         const selectedCirclecontainer = element.querySelector('.circlecontainer');
-        selectedCircleContainer.style.display = 'none';
-        selectedCirclecontainer.style.display = 'flex';
+        const selectedStartDates = element.querySelector('.start-dates');
+        if (selectedCircleContainer) selectedCircleContainer.style.display = 'none';
+        if (selectedCirclecontainer) selectedCirclecontainer.style.display = 'flex';
+        if (selectedStartDates) selectedStartDates.style.display = 'block';
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
     document.addEventListener('DOMContentLoaded', function () {
+        const enrollBox = document.querySelector('.enroll-course');
+        const courseBox = document.querySelector('.buy-course');
+        const courseVisibility = '<?php echo esc_js($course_visibility); ?>';
+
+        if (courseVisibility === 'don\'t show buy course' && enrollBox) {
+            selectBox(enrollBox, 'box2');
+        } else if (courseVisibility === 'show buy course' && courseBox) {
+            selectBox(courseBox, 'box1');
+        }
+
         const firstDateBtn = document.querySelector('.enroll-course .date-btn');
         if (firstDateBtn) {
             firstDateBtn.classList.add('selected');
@@ -551,7 +504,7 @@ function selectable_boxes_shortcode() {
                     action: 'woocommerce_add_to_cart',
                     product_id: productId,
                     quantity: 1,
-                    security: '<?php echo wp_create_nonce('woocommerce-add_to_cart'); ?>'
+                    security: '<?php echo wp_create_nonce('woocommerce_add_to_cart'); ?>'
                 };
 
                 jQuery.post('<?php echo esc_url(admin_url('admin-ajax.php')); ?>', data, function (response) {
@@ -568,7 +521,7 @@ function selectable_boxes_shortcode() {
                                 if (jQuery('#fkcart-sidecart').length) {
                                     jQuery('#fkcart-sidecart').addClass('fkcart-active');
                                 }
-                                jQuery(document.body).trigger('added_to_cart', [response.fragments, response.catalog_hash]);
+                                jQuery(document.body).trigger('added_to_cart');
                             } catch (error) {
                                 alert('Added to cart, but cart didn’t open.');
                             }
@@ -578,7 +531,6 @@ function selectable_boxes_shortcode() {
             });
         });
 
-        // Dynamic countdown timer
         const countdownElement = document.getElementById('countdown-timer');
         if (countdownElement && countdownElement.dataset.launchDate) {
             const launchDate = new Date(countdownElement.dataset.launchDate).getTime();
@@ -613,6 +565,7 @@ function selectable_boxes_shortcode() {
     </script>
     <?php
     return ob_get_clean();
-}
+} // End selectable_boxes_shortcode
+
 add_shortcode('selectable_boxes', 'selectable_boxes_shortcode');
 ?>
