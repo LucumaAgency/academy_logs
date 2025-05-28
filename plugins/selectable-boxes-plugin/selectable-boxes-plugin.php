@@ -190,10 +190,7 @@ function selectable_boxes_shortcode() {
                         }
                         ?>
                     </div>
-                    <p style="text-align: center; letter-spacing: 0.9px; margin-top: 30px; font-weight: 200; font-size: 12px;">
-  <span style="font-weight: 400; font-size: 14px;">Can't make it to a class?</span>
-  <br>No worries! All live courses will be recorded and made available on-demand to all students.
-</p>
+                    <p class="description">All live courses will be recorded and available as VOD.</p>
                 </div>
                 <button class="add-to-cart-button" data-product-id="<?php echo esc_attr($enroll_product_id); ?>">Register Now</button>
             </div>
@@ -459,64 +456,34 @@ function selectable_boxes_shortcode() {
 }
     </style>
 
-    <script>
-    let selectedDate = '';
+<script>
+let selectedDate = '';
+let wasCartOpened = false;
+let wasCartManuallyClosed = false;
 
-    function selectBox(element, boxId) {
-        document.querySelectorAll('.box').forEach(box => {
-            box.classList.remove('selected');
-            box.classList.add('no-button');
-            const circleContainer = box.querySelector('.circle-container');
-            const circlecontainer = box.querySelector('.circlecontainer');
-            const startDates = box.querySelector('.start-dates');
-            if (circleContainer) circleContainer.style.display = 'flex';
-            if (circlecontainer) circlecontainer.style.display = 'none';
-            if (startDates) startDates.style.display = 'none';
-        });
-        element.classList.add('selected');
-        element.classList.remove('no-button');
-        const selectedCircleContainer = element.querySelector('.circle-container');
-        const selectedCirclecontainer = element.querySelector('.circlecontainer');
-        const selectedStartDates = element.querySelector('.start-dates');
-        if (selectedCircleContainer) selectedCircleContainer.style.display = 'none';
-        if (selectedCirclecontainer) selectedCirclecontainer.style.display = 'flex';
-        if (selectedStartDates) selectedStartDates.style.display = 'block';
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
+function selectBox(element, boxId) {
+    document.querySelectorAll('.box').forEach(box => {
+        box.classList.remove('selected');
+        box.classList.add('no-button');
+        const circleContainer = box.querySelector('.circle-container');
+        const circlecontainer = box.querySelector('.circlecontainer');
+        const startDates = box.querySelector('.start-dates');
+        if (circleContainer) circleContainer.style.display = 'flex';
+        if (circlecontainer) circlecontainer.style.display = 'none';
+        if (startDates) startDates.style.display = 'none';
+    });
+    element.classList.add('selected');
+    element.classList.remove('no-button');
+    const selectedCircleContainer = element.querySelector('.circle-container');
+    const selectedCirclecontainer = element.querySelector('.circlecontainer');
+    const selectedStartDates = element.querySelector('.start-dates');
+    if (selectedCircleContainer) selectedCircleContainer.style.display = 'none';
+    if (selectedCirclecontainer) selectedCirclecontainer.style.display = 'flex';
+    if (selectedStartDates) selectedStartDates.style.display = 'block';
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
 
-    document.addEventListener('DOMContentLoaded', function () {
-        console.log('DOM loaded, initializing selectable boxes');
-        const enrollBox = document.querySelector('.enroll-course');
-        const courseBox = document.querySelector('.buy-course');
-        const courseVisibility = '<?php echo esc_js($course_visibility); ?>';
-        console.log('Course visibility:', courseVisibility);
-
-        if (courseVisibility === 'don\'t show buy course' && enrollBox) {
-            console.log('Selecting enroll box by default');
-            selectBox(enrollBox, 'box2');
-        } else if (courseVisibility === 'show buy course' && courseBox) {
-            console.log('Selecting course box by default');
-            selectBox(courseBox, 'box1');
-        }
-
-        const firstDateBtn = document.querySelector('.enroll-course .date-btn');
-        if (firstDateBtn) {
-            firstDateBtn.classList.add('selected');
-            selectedDate = firstDateBtn.getAttribute('data-date') || firstDateBtn.textContent.trim();
-            console.log('Default selected date:', selectedDate);
-        }
-
-        document.querySelectorAll('.date-btn').forEach(btn => {
-            btn.addEventListener('click', function (e) {
-                e.stopPropagation();
-                document.querySelectorAll('.date-btn').forEach(b => b.classList.remove('selected'));
-                this.classList.add('selected');
-                selectedDate = this.getAttribute('data-date') || this.textContent.trim();
-                console.log('Updated selected date:', selectedDate);
-            });
-        });
-
-        function openFunnelKitCart() {
+function openFunnelKitCart() {
     console.log('openFunnelKitCart called');
     wasCartOpened = false;
     wasCartManuallyClosed = false;
@@ -526,269 +493,282 @@ function selectable_boxes_shortcode() {
         jQuery(document.body).trigger('wc_fragment_refresh');
 
         const checkVisibility = () => {
-            const sidebar = document.querySelector('#fkcart-sidecart, .fkcart-sidebar, .fk-cart-panel, .fkcart-cart-sidebar, .cart-sidebar');
+            const sidebar = document.querySelector('#fkcart-sidecart, .fkcart-sidebar, .fk-cart-panel, .fkcart-cart-sidebar, .cart-sidebar, .fkcart-panel');
             if (sidebar) {
-                const classes = sidebar.classList;
-                const isVisible = classes.contains('fkcart-active') || 
-                                  classes.contains('active') || 
-                                  window.getComputedStyle(sidebar).display !== 'none';
-                console.log('Sidebar visibility check - Classes:', classes, 'IsVisible:', isVisible);
+                const isVisible = sidebar.classList.contains('fkcart-active') ||
+                                  sidebar.classList.contains('active') ||
+                                  sidebar.classList.contains('fkcart-open') ||
+                                  window.getComputedStyle(sidebar).display !== 'none' ||
+                                  window.getComputedStyle(sidebar).visibility !== 'hidden';
+                console.log('Sidebar visibility check - Classes:', sidebar.classList, 'IsVisible:', isVisible);
                 return isVisible;
-            } else {
-                console.log('No sidebar element found');
-                return false;
             }
+            console.log('No sidebar element found');
+            return false;
         };
 
-        jQuery(document.body).one('wc_fragments_refreshed added_to_cart', function (event) {
-            console.log('Event triggered:', event.type);
-            try {
-                console.log('Triggering fkcart_open_cart');
-                jQuery(document).trigger('fkcart_open_cart');
+        try {
+            console.log('Triggering fkcart_open_cart');
+            jQuery(document).trigger('fkcart_open_cart');
 
-                const toggles = ['.fkcart-mini-open', '.fkcart-toggle', '[data-fkcart-open]', '.fkcart-cart-toggle', '.cart-toggle'];
-                let toggleClicked = false;
-                toggles.forEach(selector => {
-                    const toggle = document.querySelector(selector);
-                    if (toggle && !toggleClicked) {
-                        console.log('Clicking toggle:', selector);
-                        toggle.click();
-                        toggleClicked = true;
-                    } else {
-                        console.log('No toggle found for selector:', selector);
-                    }
-                });
+            const toggles = ['.fkcart-mini-open', '.fkcart-toggle', '[data-fkcart-open]', '.fkcart-cart-toggle', '.cart-toggle', '.fkcart-open'];
+            let toggleClicked = false;
+            toggles.forEach(selector => {
+                const toggle = document.querySelector(selector);
+                if (toggle && !toggleClicked) {
+                    console.log('Clicking toggle:', selector);
+                    toggle.click();
+                    toggleClicked = true;
+                } else {
+                    console.log('No toggle found for selector:', selector);
+                }
+            });
 
-                const sidebars = ['#fkcart-sidecart', '.fkcart-sidebar', '.fk-cart-panel', '.fkcart-cart-sidebar', '.cart-sidebar'];
-                let sidebarActivated = false;
-                sidebars.forEach(selector => {
-                    const sidebar = document.querySelector(selector);
-                    if (sidebar && !sidebarActivated) {
-                        console.log('Activating sidebar:', selector);
-                        sidebar.classList.add('fkcart-active', 'active');
-                        sidebarActivated = true;
-                    } else {
-                        console.log('No sidebar found for selector:', selector);
-                    }
-                });
+            const sidebars = ['#fkcart-sidecart', '.fkcart-sidebar', '.fk-cart-panel', '.fkcart-cart-sidebar', '.cart-sidebar', '.fkcart-panel'];
+            let sidebarActivated = false;
+            sidebars.forEach(selector => {
+                const sidebar = document.querySelector(selector);
+                if (sidebar && !sidebarActivated) {
+                    console.log('Activating sidebar:', selector);
+                    sidebar.classList.add('fkcart-active', 'active', 'fkcart-open');
+                    sidebarActivated = true;
+                } else {
+                    console.log('No sidebar found for selector:', selector);
+                }
+            });
 
+            if (checkVisibility()) {
+                console.log('Sidebar visible after initial attempt');
+                wasCartOpened = true;
+                resolve(true);
+                return;
+            }
+
+            setTimeout(() => {
                 if (checkVisibility()) {
-                    console.log('Sidebar visible after initial attempt');
+                    console.log('Sidebar visible after delay');
                     wasCartOpened = true;
                     resolve(true);
-                    return;
+                } else if (wasCartManuallyClosed) {
+                    console.log('Cart was manually closed, resolving');
+                    resolve(true);
+                } else {
+                    console.log('Sidebar not visible, resolving without alert');
+                    resolve(wasCartOpened);
                 }
-
-                setTimeout(() => {
-                    const isVisible = checkVisibility();
-                    if (isVisible) {
-                        console.log('Sidebar visible after delay');
-                        wasCartOpened = true;
-                        resolve(true);
-                    } else if (wasCartManuallyClosed) {
-                        console.log('Cart was manually closed, skipping further checks');
-                        resolve(true);
-                    } else {
-                        console.log('Sidebar not visible, forcing another refresh');
-                        jQuery(document.body).trigger('wc_fragment_refresh');
-                        jQuery(document).trigger('fkcart_open_cart');
-                        setTimeout(() => {
-                            const finalVisible = checkVisibility();
-                            if (finalVisible) {
-                                wasCartOpened = true;
-                            }
-                            console.log('Final visibility check:', finalVisible, 'Was opened:', wasCartOpened, 'Was manually closed:', wasCartManuallyClosed);
-                            resolve(finalVisible || wasCartOpened || wasCartManuallyClosed);
-                        }, 1500);
-                    }
-                }, 2500);
-            } catch (error) {
-                console.error('Error in openFunnelKitCart:', error);
-                resolve(wasCartOpened || wasCartManuallyClosed);
-            }
-        });
-
-        setTimeout(() => {
-            if (!jQuery(document.body).hasClass('wc_fragments_refreshed')) {
-                console.log('wc_fragments_refreshed not triggered, forcing update');
-                jQuery(document.body).trigger('wc_update_cart');
-                resolve(wasCartOpened || wasCartManuallyClosed);
-            }
-        }, 6000);
+            }, 1000);
+        } catch (error) {
+            console.error('Error in openFunnelKitCart:', error);
+            resolve(wasCartOpened || wasCartManuallyClosed);
+        }
     });
 }
 
-        function getCartContents() {
-            return new Promise((resolve) => {
-                console.log('Fetching current cart contents');
-                const ajaxUrl = '<?php echo esc_url(admin_url('admin-ajax.php')); ?>?action=get_refreshed_fragments&_=' + new Date().getTime();
-                console.log('Cart contents AJAX URL:', ajaxUrl);
-                jQuery.get(ajaxUrl, function (response) {
-                    console.log('Cart contents response:', response);
-                    resolve(response);
-                }).fail(function (jqXHR, textStatus, errorThrown) {
-                    console.error('Failed to fetch cart contents:', textStatus, errorThrown);
-                    resolve(null);
-                });
-            });
-        }
-
-document.querySelectorAll('.add-to-cart-button').forEach(button => {
-    button.addEventListener('click', async function (e) {
-        e.preventDefault();
-        const productId = this.getAttribute('data-product-id');
-        console.log('Add to cart button clicked, Product ID:', productId);
-
-        if (!productId || productId === '0') {
-            console.error('Invalid product ID');
-            alert('Error: Invalid product. Please try again.');
-            return;
-        }
-
-        const isEnrollButton = this.closest('.enroll-course') !== null;
-        console.log('Is enroll button:', isEnrollButton);
-        if (isEnrollButton && !selectedDate) {
-            console.error('No start date selected for enroll course');
-            alert('Please select a start date before adding to cart.');
-            return;
-        }
-
-        const addToCart = (productId, startDate = null) => {
-            console.log('addToCart called with Product ID:', productId, 'Start Date:', startDate);
-            return new Promise((resolve, reject) => {
-                const data = {
-                    action: 'woocommerce_add_to_cart',
-                    product_id: productId,
-                    quantity: 1,
-                    security: '<?php echo wp_create_nonce('woocommerce_add_to_cart'); ?>'
-                };
-
-                if (startDate) {
-                    data.start_date = startDate;
-                    console.log('Including start_date in AJAX data:', startDate);
-                }
-
-                console.log('Sending AJAX request with data:', data);
-                jQuery.post('<?php echo esc_url(admin_url('admin-ajax.php')); ?>', data, function (response) {
-                    console.log('AJAX response received:', response);
-                    if (response && response.fragments && response.cart_hash) {
-                        console.log('Product added to cart successfully');
-                        resolve(response);
-                    } else {
-                        console.error('Failed to add product to cart, response:', response);
-                        reject(new Error('Failed to add product to cart.'));
-                    }
-                }).fail(function (jqXHR, textStatus, errorThrown) {
-                    console.error('AJAX request failed:', textStatus, errorThrown);
-                    reject(new Error('Error communicating with the server: ' + textStatus));
-                });
-            });
-        };
-
-        const addProduct = async () => {
-            console.log('Starting addProduct process');
-            try {
-                const cartContents = await getCartContents();
-                console.log('Current cart contents before adding:', cartContents);
-
-                const response = await addToCart(productId, isEnrollButton ? selectedDate : null);
-                console.log('Triggering added_to_cart with fragments and cart_hash');
-                jQuery(document.body).trigger('added_to_cart', [response.fragments, response.cart_hash]);
-                jQuery(document.body).trigger('wc_fragment_refresh');
-
-                setTimeout(() => {
-                    console.log('Forcing delayed cart refresh');
-                    jQuery(document.body).trigger('wc_fragment_refresh');
-                    jQuery(document).trigger('fkcart_open_cart');
-                }, 1000);
-
-                const updatedCartContents = await getCartContents();
-                console.log('Cart contents after adding product:', updatedCartContents);
-
-                console.log('Calling openFunnelKitCart');
-                const cartOpened = await openFunnelKitCart();
-                console.log('Cart opened successfully:', cartOpened);
-                if (!cartOpened && !wasCartOpened && !wasCartManuallyClosed) {
-                    console.warn('Cart failed to open, notifying user to check manually');
-                    alert('The cart may not have updated. Please check the cart manually.');
-                }
-            } catch (error) {
-                console.error('Error in addProduct:', error);
-                alert('Error adding product to cart: ' + error.message);
-            }
-        };
-
-        addProduct();
+function getCartContents() {
+    return new Promise((resolve) => {
+        console.log('Fetching current cart contents');
+        const ajaxUrl = '<?php echo esc_url(admin_url('admin-ajax.php')); ?>?action=get_refreshed_fragments&_=' + new Date().getTime();
+        console.log('Cart contents AJAX URL:', ajaxUrl);
+        jQuery.get(ajaxUrl, function (response) {
+            console.log('Cart contents response:', response);
+            resolve(response);
+        }).fail(function (jqXHR, textStatus, errorThrown) {
+            console.error('Failed to fetch cart contents:', textStatus, errorThrown);
+            resolve(null);
+        });
     });
-});
+}
 
-        jQuery(document).on('click', '.wfacp_mb_mini_cart_sec_accordion', function (e) {
-            console.log('Order Summary toggle clicked');
-            try {
-                const $this = jQuery(this);
-                const content = $this.next('.wfacp_mb_mini_cart_sec_accordion_content');
-                if (content.length) {
-                    console.log('Order Summary content found, toggling display');
-                    content.toggle();
-                    jQuery(document.body).trigger('wc_fragment_refresh');
-                    console.log('wc_fragment_refresh triggered for order summary');
-                } else {
-                    console.warn('Order Summary content not found');
-                }
-            } catch (error) {
-                console.error('Error toggling Order Summary:', error);
-                alert('Error loading order summary. Please refresh the page and try again.');
+document.addEventListener('DOMContentLoaded', function () {
+    console.log('DOM loaded, initializing selectable boxes');
+    const enrollBox = document.querySelector('.enroll-course');
+    const courseBox = document.querySelector('.buy-course');
+    const courseVisibility = '<?php echo esc_js($course_visibility); ?>';
+    console.log('Course visibility:', courseVisibility);
+
+    if (courseVisibility === 'don\'t show buy course' && enrollBox) {
+        console.log('Selecting enroll box by default');
+        selectBox(enrollBox, 'box2');
+    } else if (courseVisibility === 'show buy course' && courseBox) {
+        console.log('Selecting course box by default');
+        selectBox(courseBox, 'box1');
+    }
+
+    const firstDateBtn = document.querySelector('.enroll-course .date-btn');
+    if (firstDateBtn) {
+        firstDateBtn.classList.add('selected');
+        selectedDate = firstDateBtn.getAttribute('data-date') || firstDateBtn.textContent.trim();
+        console.log('Default selected date:', selectedDate);
+    }
+
+    document.querySelectorAll('.date-btn').forEach(btn => {
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            document.querySelectorAll('.date-btn').forEach(b => b.classList.remove('selected'));
+            this.classList.add('selected');
+            selectedDate = this.getAttribute('data-date') || this.textContent.trim();
+            console.log('Updated selected date:', selectedDate);
+        });
+    });
+
+    document.querySelectorAll('.add-to-cart-button').forEach(button => {
+        button.addEventListener('click', async function (e) {
+            e.preventDefault();
+            const productId = this.getAttribute('data-product-id');
+            console.log('Add to cart button clicked, Product ID:', productId);
+
+            if (!productId || productId === '0') {
+                console.error('Invalid product ID');
+                alert('Error: Invalid product. Please try again.');
+                return;
             }
-        });
 
-        document.addEventListener('click', function (e) {
-            if (e.target.closest('.fkcart-close, .fkcart-cart-close, .cart-close')) {
-                console.log('Cart sidebar close button clicked, preventing unnecessary alerts');
+            const isEnrollButton = this.closest('.enroll-course') !== null;
+            console.log('Is enroll button:', isEnrollButton);
+            if (isEnrollButton && !selectedDate) {
+                console.error('No start date selected for enroll course');
+                alert('Please select a start date before adding to cart.');
+                return;
             }
-        });
 
-        document.querySelectorAll('.fkcart-cart-toggle, .cart-toggle').forEach(toggle => {
-            toggle.addEventListener('click', () => {
-                console.log('Manual cart toggle clicked, forcing refresh');
-                jQuery(document.body).trigger('wc_fragment_refresh');
-                jQuery(document.body).trigger('wc_update_cart');
-            });
-        });
+            const addToCart = (productId, startDate = null) => {
+                console.log('addToCart called with Product ID:', productId, 'Start Date:', startDate);
+                return new Promise((resolve, reject) => {
+                    const data = {
+                        action: 'woocommerce_add_to_cart',
+                        product_id: productId,
+                        quantity: 1,
+                        security: '<?php echo wp_create_nonce('woocommerce_add_to_cart'); ?>'
+                    };
 
-        const countdownElement = document.getElementById('countdown-timer');
-        if (countdownElement && countdownElement.dataset.launchDate) {
-            console.log('Initializing countdown timer with launch date:', countdownElement.dataset.launchDate);
-            const launchDate = new Date(countdownElement.dataset.launchDate).getTime();
-            const updateCountdown = () => {
-                const now = new Date().getTime();
-                const timeDiff = launchDate - now;
-                if (timeDiff <= 0) {
-                    console.log('Countdown ended, displaying Launched!');
-                    countdownElement.innerHTML = '<span class="launch-soon">Launched!</span>';
-                    return;
-                }
-                const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-                const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
-                const timeUnits = [
-                    { unit: 'days', value: days },
-                    { unit: 'hours', value: hours },
-                    { unit: 'minutes', value: minutes },
-                    { unit: 'seconds', value: seconds }
-                ];
-                timeUnits.forEach(({ unit, value }) => {
-                    const element = countdownElement.querySelector(`.time-unit[data-unit="${unit}"] .time-value`);
-                    if (element) {
-                        element.textContent = `${value.toString().padStart(2, '0')}`;
+                    if (startDate) {
+                        data.start_date = startDate;
+                        console.log('Including start_date in AJAX data:', startDate);
                     }
+
+                    console.log('Sending AJAX request with data:', data);
+                    jQuery.post('<?php echo esc_url(admin_url('admin-ajax.php')); ?>', data, function (response) {
+                        console.log('AJAX response received:', response);
+                        if (response && response.fragments && response.cart_hash) {
+                            console.log('Product added to cart successfully');
+                            resolve(response);
+                        } else {
+                            console.error('Failed to add product to cart, response:', response);
+                            reject(new Error('Failed to add product to cart.'));
+                        }
+                    }).fail(function (jqXHR, textStatus, errorThrown) {
+                        console.error('AJAX request failed:', textStatus, errorThrown);
+                        reject(new Error('Error communicating with the server: ' + textStatus));
+                    });
                 });
             };
-            updateCountdown();
-            setInterval(updateCountdown, 1000);
+
+            const addProduct = async () => {
+                console.log('Starting addProduct process');
+                try {
+                    const cartContents = await getCartContents();
+                    console.log('Current cart contents before adding:', cartContents);
+
+                    const response = await addToCart(productId, isEnrollButton ? selectedDate : null);
+                    console.log('Triggering added_to_cart with fragments and cart_hash');
+                    jQuery(document.body).trigger('added_to_cart', [response.fragments, response.cart_hash]);
+                    jQuery(document.body).trigger('wc_fragment_refresh');
+
+                    setTimeout(() => {
+                        console.log('Forcing delayed cart refresh');
+                        jQuery(document.body).trigger('wc_fragment_refresh');
+                        jQuery(document).trigger('fkcart_open_cart');
+                    }, 1000);
+
+                    const updatedCartContents = await getCartContents();
+                    console.log('Cart contents after adding product:', updatedCartContents);
+
+                    console.log('Calling openFunnelKitCart');
+                    const cartOpened = await openFunnelKitCart();
+                    console.log('Cart opened successfully:', cartOpened);
+                    if (!cartOpened && !wasCartOpened && !wasCartManuallyClosed) {
+                        console.warn('Cart failed to open, notifying user to check manually');
+                        alert('The cart may not have updated. Please check the cart manually.');
+                    }
+                } catch (error) {
+                    console.error('Error in addProduct:', error);
+                    alert('Error adding product to cart: ' + error.message);
+                }
+            };
+
+            addProduct();
+        });
+    });
+
+    jQuery(document).on('click', '.wfacp_mb_mini_cart_sec_accordion', function (e) {
+        console.log('Order Summary toggle clicked');
+        try {
+            const $this = jQuery(this);
+            const content = $this.next('.wfacp_mb_mini_cart_sec_accordion_content');
+            if (content.length) {
+                console.log('Order Summary content found, toggling display');
+                content.toggle();
+                jQuery(document.body).trigger('wc_fragment_refresh');
+                console.log('wc_fragment_refresh triggered for order summary');
+            } else {
+                console.warn('Order Summary content not found');
+            }
+        } catch (error) {
+            console.error('Error toggling Order Summary:', error);
+            alert('Error loading order summary. Please refresh the page and try again.');
         }
     });
-    </script>
+
+    document.addEventListener('click', function (e) {
+        if (e.target.closest('.fkcart-close, .fkcart-cart-close, .cart-close, .fkcart-close-btn, .fkcart-panel-close, [data-fkcart-close], .close-cart')) {
+            console.log('Cart sidebar close button clicked');
+            wasCartManuallyClosed = true;
+        }
+    });
+
+    document.querySelectorAll('.fkcart-cart-toggle, .cart-toggle').forEach(toggle => {
+        toggle.addEventListener('click', () => {
+            console.log('Manual cart toggle clicked, forcing refresh');
+            jQuery(document.body).trigger('wc_fragment_refresh');
+            jQuery(document.body).trigger('wc_update_cart');
+        });
+    });
+
+    const countdownElement = document.getElementById('countdown-timer');
+    if (countdownElement && countdownElement.dataset.launchDate) {
+        console.log('Initializing countdown timer with launch date:', countdownElement.dataset.launchDate);
+        const launchDate = new Date(countdownElement.dataset.launchDate).getTime();
+        const updateCountdown = () => {
+            const now = new Date().getTime();
+            const timeDiff = launchDate - now;
+            if (timeDiff <= 0) {
+                console.log('Countdown ended, displaying Launched!');
+                countdownElement.innerHTML = '<span class="launch-soon">Launched!</span>';
+                return;
+            }
+            const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
+            const timeUnits = [
+                { unit: 'days', value: days },
+                { unit: 'hours', value: hours },
+                { unit: 'minutes', value: minutes },
+                { unit: 'seconds', value: seconds }
+            ];
+            timeUnits.forEach(({ unit, value }) => {
+                const element = countdownElement.querySelector(`.time-unit[data-unit="${unit}"] .time-value`);
+                if (element) {
+                    element.textContent = `${value.toString().padStart(2, '0')}`;
+                }
+            });
+        };
+        updateCountdown();
+        setInterval(updateCountdown, 1000);
+    }
+});
+</script>
+
     <?php
     return ob_get_clean();
 }
