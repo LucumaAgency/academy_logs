@@ -1,10 +1,18 @@
 <?php
 /*
 Plugin Name: Selectable Boxes Plugin
-Description: A plugin to create selectable boxes for courses with live course date options, dynamic launch countdown, and an admin dropdown in course post type to show/hide course box.
-Version: 1.27
+Description: A plugin to create selectable boxes for courses with live course date options from ACF, dynamic launch countdown, an admin dropdown in course post type to show/hide course box, and saves selected start date to order metadata, displayed in orders and emails. Supports multiple products in FunnelKit Cart.
+Version: 1.30
 Author: Carlos Murillo
 */
+
+// Ensure FunnelKit Cart and Checkout are enabled on course post type
+add_filter('fkcart_disabled_post_types', function ($post_types) {
+    $post_types = array_filter($post_types, function ($i) {
+        return $i !== 'course';
+    });
+    return $post_types;
+});
 
 function selectable_boxes_shortcode() {
     global $post;
@@ -16,12 +24,31 @@ function selectable_boxes_shortcode() {
     $course_price = get_field('field_681ccc6eb123a', $post_id) ?: '749.99';
     $course_visibility = get_field('field_68314e3c26394', $post_id) ?: 'don\'t show buy course';
 
+    // Get available start dates from ACF repeater field
+    $available_dates = [];
+    if (have_rows('field_6826dd2179231', $post_id)) {
+        while (have_rows('field_6826dd2179231', $post_id)) {
+            the_row();
+            $date_text = get_sub_field('field_6826dfe2d7837');
+            if (!empty($date_text)) {
+                $available_dates[] = sanitize_text_field($date_text);
+            }
+        }
+    }
+
+    // Handle case when no dates are available
+    if (empty($available_dates)) {
+        error_log('Selectable Boxes Plugin: No start dates available for post ID ' . $post_id);
+        return '<p class="error">Error: No start dates available for this course.</p>';
+    }
+
     // Debug: Log field values
     error_log('Selectable Boxes Plugin: Post ID = ' . $post_id);
     error_log('Selectable Boxes Plugin: course_visibility = ' . $course_visibility);
     error_log('Selectable Boxes Plugin: course_product_link = ' . ($course_product_link ?: 'empty'));
     error_log('Selectable Boxes Plugin: enroll_product_link = ' . ($enroll_product_link ?: 'empty'));
     error_log('Selectable Boxes Plugin: course_price = ' . $course_price);
+    error_log('Selectable Boxes Plugin: available_dates = ' . implode(', ', $available_dates));
 
     $enroll_price = '1249.99';
     $is_out_of_stock = false;
@@ -158,27 +185,15 @@ function selectable_boxes_shortcode() {
                     <p class="choose-label">Choose a starting date</p>
                     <div class="date-options">
                         <?php
-                        if (have_rows('field_682a572f53f64', $post_id)) {
-                            while (have_rows('field_682a572f53f64', $post_id)) {
-                                the_row();
-                                $date_text = get_sub_field('field_682a574e53f65');
-                                if (!empty($date_text)) {
-                                    echo '<button class="date-btn">' . esc_html($date_text) . '</button>';
-                                }
-                            }
-                        } else {
-                            error_log('Selectable Boxes Plugin: Repeater field_682a572f53f64 is empty or does not exist for post ID ' . $post_id);
-                            echo '
-                                <button class="date-btn">5 Mayo</button>
-                                <button class="date-btn">12 Mayo</button>
-                                <button class="date-btn">19 Mayo</button>
-                                <button class="date-btn">26 Mayo</button>
-                                <button class="date-btn">2 Junio</button>
-                            ';
+                        foreach ($available_dates as $date) {
+                            echo '<button class="date-btn" data-date="' . esc_attr($date) . '">' . esc_html($date) . '</button>';
                         }
                         ?>
                     </div>
-                    <p class="description">All live courses will be recorded and available as VOD.</p>
+                    <p style="text-align: center; letter-spacing: 0.9px; margin-top: 30px; font-weight: 200; font-size: 12px;">
+  <span style="font-weight: 400; font-size: 14px;">Can't make it to a class?</span>
+  <br>No worries! All live courses will be recorded and made available on-demand to all students.
+</p>
                 </div>
                 <button class="add-to-cart-button" data-product-id="<?php echo esc_attr($enroll_product_id); ?>">Register Now</button>
             </div>
@@ -415,7 +430,7 @@ function selectable_boxes_shortcode() {
 }
 
 .box-container .date-btn {
-    width: 68px !important;
+    width: 68px;
     padding: 5px 8px;
     border: none;
     border-radius: 25px;
@@ -445,6 +460,8 @@ function selectable_boxes_shortcode() {
     </style>
 
     <script>
+    let selectedDate = '';
+
     function selectBox(element, boxId) {
         document.querySelectorAll('.box').forEach(box => {
             box.classList.remove('selected');
@@ -468,19 +485,25 @@ function selectable_boxes_shortcode() {
     }
 
     document.addEventListener('DOMContentLoaded', function () {
+        console.log('DOM loaded, initializing selectable boxes');
         const enrollBox = document.querySelector('.enroll-course');
         const courseBox = document.querySelector('.buy-course');
         const courseVisibility = '<?php echo esc_js($course_visibility); ?>';
+        console.log('Course visibility:', courseVisibility);
 
         if (courseVisibility === 'don\'t show buy course' && enrollBox) {
+            console.log('Selecting enroll box by default');
             selectBox(enrollBox, 'box2');
         } else if (courseVisibility === 'show buy course' && courseBox) {
+            console.log('Selecting course box by default');
             selectBox(courseBox, 'box1');
         }
 
         const firstDateBtn = document.querySelector('.enroll-course .date-btn');
         if (firstDateBtn) {
             firstDateBtn.classList.add('selected');
+            selectedDate = firstDateBtn.getAttribute('data-date') || firstDateBtn.textContent.trim();
+            console.log('Default selected date:', selectedDate);
         }
 
         document.querySelectorAll('.date-btn').forEach(btn => {
@@ -488,18 +511,151 @@ function selectable_boxes_shortcode() {
                 e.stopPropagation();
                 document.querySelectorAll('.date-btn').forEach(b => b.classList.remove('selected'));
                 this.classList.add('selected');
+                selectedDate = this.getAttribute('data-date') || this.textContent.trim();
+                console.log('Updated selected date:', selectedDate);
             });
         });
 
-        document.querySelectorAll('.add-to-cart-button').forEach(button => {
-            button.addEventListener('click', function (e) {
-                e.preventDefault();
-                const productId = this.getAttribute('data-product-id');
-                if (!productId || productId === '0') {
-                    alert('Error: Invalid product. Please try again.');
+        function openFunnelKitCart() {
+    console.log('openFunnelKitCart called');
+    wasCartOpened = false;
+    wasCartManuallyClosed = false;
+
+    return new Promise((resolve) => {
+        console.log('Triggering wc_fragment_refresh');
+        jQuery(document.body).trigger('wc_fragment_refresh');
+
+        const checkVisibility = () => {
+            const sidebar = document.querySelector('#fkcart-sidecart, .fkcart-sidebar, .fk-cart-panel, .fkcart-cart-sidebar, .cart-sidebar');
+            if (sidebar) {
+                const classes = sidebar.classList;
+                const isVisible = classes.contains('fkcart-active') || 
+                                  classes.contains('active') || 
+                                  window.getComputedStyle(sidebar).display !== 'none';
+                console.log('Sidebar visibility check - Classes:', classes, 'IsVisible:', isVisible);
+                return isVisible;
+            } else {
+                console.log('No sidebar element found');
+                return false;
+            }
+        };
+
+        jQuery(document.body).one('wc_fragments_refreshed added_to_cart', function (event) {
+            console.log('Event triggered:', event.type);
+            try {
+                console.log('Triggering fkcart_open_cart');
+                jQuery(document).trigger('fkcart_open_cart');
+
+                const toggles = ['.fkcart-mini-open', '.fkcart-toggle', '[data-fkcart-open]', '.fkcart-cart-toggle', '.cart-toggle'];
+                let toggleClicked = false;
+                toggles.forEach(selector => {
+                    const toggle = document.querySelector(selector);
+                    if (toggle && !toggleClicked) {
+                        console.log('Clicking toggle:', selector);
+                        toggle.click();
+                        toggleClicked = true;
+                    } else {
+                        console.log('No toggle found for selector:', selector);
+                    }
+                });
+
+                const sidebars = ['#fkcart-sidecart', '.fkcart-sidebar', '.fk-cart-panel', '.fkcart-cart-sidebar', '.cart-sidebar'];
+                let sidebarActivated = false;
+                sidebars.forEach(selector => {
+                    const sidebar = document.querySelector(selector);
+                    if (sidebar && !sidebarActivated) {
+                        console.log('Activating sidebar:', selector);
+                        sidebar.classList.add('fkcart-active', 'active');
+                        sidebarActivated = true;
+                    } else {
+                        console.log('No sidebar found for selector:', selector);
+                    }
+                });
+
+                if (checkVisibility()) {
+                    console.log('Sidebar visible after initial attempt');
+                    wasCartOpened = true;
+                    resolve(true);
                     return;
                 }
 
+                setTimeout(() => {
+                    const isVisible = checkVisibility();
+                    if (isVisible) {
+                        console.log('Sidebar visible after delay');
+                        wasCartOpened = true;
+                        resolve(true);
+                    } else if (wasCartManuallyClosed) {
+                        console.log('Cart was manually closed, skipping further checks');
+                        resolve(true);
+                    } else {
+                        console.log('Sidebar not visible, forcing another refresh');
+                        jQuery(document.body).trigger('wc_fragment_refresh');
+                        jQuery(document).trigger('fkcart_open_cart');
+                        setTimeout(() => {
+                            const finalVisible = checkVisibility();
+                            if (finalVisible) {
+                                wasCartOpened = true;
+                            }
+                            console.log('Final visibility check:', finalVisible, 'Was opened:', wasCartOpened, 'Was manually closed:', wasCartManuallyClosed);
+                            resolve(finalVisible || wasCartOpened || wasCartManuallyClosed);
+                        }, 1500);
+                    }
+                }, 2500);
+            } catch (error) {
+                console.error('Error in openFunnelKitCart:', error);
+                resolve(wasCartOpened || wasCartManuallyClosed);
+            }
+        });
+
+        setTimeout(() => {
+            if (!jQuery(document.body).hasClass('wc_fragments_refreshed')) {
+                console.log('wc_fragments_refreshed not triggered, forcing update');
+                jQuery(document.body).trigger('wc_update_cart');
+                resolve(wasCartOpened || wasCartManuallyClosed);
+            }
+        }, 6000);
+    });
+}
+
+        function getCartContents() {
+            return new Promise((resolve) => {
+                console.log('Fetching current cart contents');
+                const ajaxUrl = '<?php echo esc_url(admin_url('admin-ajax.php')); ?>?action=get_refreshed_fragments&_=' + new Date().getTime();
+                console.log('Cart contents AJAX URL:', ajaxUrl);
+                jQuery.get(ajaxUrl, function (response) {
+                    console.log('Cart contents response:', response);
+                    resolve(response);
+                }).fail(function (jqXHR, textStatus, errorThrown) {
+                    console.error('Failed to fetch cart contents:', textStatus, errorThrown);
+                    resolve(null);
+                });
+            });
+        }
+
+document.querySelectorAll('.add-to-cart-button').forEach(button => {
+    button.addEventListener('click', async function (e) {
+        e.preventDefault();
+        const productId = this.getAttribute('data-product-id');
+        console.log('Add to cart button clicked, Product ID:', productId);
+
+        if (!productId || productId === '0') {
+            console.error('Invalid product ID');
+            alert('Error: Invalid product. Please try again.');
+            return;
+        }
+
+        const isEnrollButton = this.closest('.enroll-course') !== null;
+        console.log('Is enroll button:', isEnrollButton);
+        if (isEnrollButton && !selectedDate) {
+            console.error('No start date selected for enroll course');
+            alert('Please select a start date before adding to cart.');
+            return;
+        }
+
+        const addToCart = (productId, startDate = null) => {
+            console.log('addToCart called with Product ID:', productId, 'Start Date:', startDate);
+            return new Promise((resolve, reject) => {
                 const data = {
                     action: 'woocommerce_add_to_cart',
                     product_id: productId,
@@ -507,37 +663,107 @@ function selectable_boxes_shortcode() {
                     security: '<?php echo wp_create_nonce('woocommerce_add_to_cart'); ?>'
                 };
 
+                if (startDate) {
+                    data.start_date = startDate;
+                    console.log('Including start_date in AJAX data:', startDate);
+                }
+
+                console.log('Sending AJAX request with data:', data);
                 jQuery.post('<?php echo esc_url(admin_url('admin-ajax.php')); ?>', data, function (response) {
-                    if (response && response.error) {
-                        alert('Error adding product to cart.');
+                    console.log('AJAX response received:', response);
+                    if (response && response.fragments && response.cart_hash) {
+                        console.log('Product added to cart successfully');
+                        resolve(response);
                     } else {
-                        jQuery(document.body).trigger('wc_fragment_refresh');
-                        setTimeout(() => {
-                            try {
-                                jQuery(document).trigger('fkcart_open_cart');
-                                if (jQuery('.fkcart-mini-open').length) {
-                                    jQuery('.fkcart-mini-open').trigger('click');
-                                }
-                                if (jQuery('#fkcart-sidecart').length) {
-                                    jQuery('#fkcart-sidecart').addClass('fkcart-active');
-                                }
-                                jQuery(document.body).trigger('added_to_cart');
-                            } catch (error) {
-                                alert('Added to cart, but cart didn’t open.');
-                            }
-                        }, 500);
+                        console.error('Failed to add product to cart, response:', response);
+                        reject(new Error('Failed to add product to cart.'));
                     }
+                }).fail(function (jqXHR, textStatus, errorThrown) {
+                    console.error('AJAX request failed:', textStatus, errorThrown);
+                    reject(new Error('Error communicating with the server: ' + textStatus));
                 });
+            });
+        };
+
+        const addProduct = async () => {
+            console.log('Starting addProduct process');
+            try {
+                const cartContents = await getCartContents();
+                console.log('Current cart contents before adding:', cartContents);
+
+                const response = await addToCart(productId, isEnrollButton ? selectedDate : null);
+                console.log('Triggering added_to_cart with fragments and cart_hash');
+                jQuery(document.body).trigger('added_to_cart', [response.fragments, response.cart_hash]);
+                jQuery(document.body).trigger('wc_fragment_refresh');
+
+                setTimeout(() => {
+                    console.log('Forcing delayed cart refresh');
+                    jQuery(document.body).trigger('wc_fragment_refresh');
+                    jQuery(document).trigger('fkcart_open_cart');
+                }, 1000);
+
+                const updatedCartContents = await getCartContents();
+                console.log('Cart contents after adding product:', updatedCartContents);
+
+                console.log('Calling openFunnelKitCart');
+                const cartOpened = await openFunnelKitCart();
+                console.log('Cart opened successfully:', cartOpened);
+                if (!cartOpened && !wasCartOpened && !wasCartManuallyClosed) {
+                    console.warn('Cart failed to open, notifying user to check manually');
+                    alert('The cart may not have updated. Please check the cart manually.');
+                }
+            } catch (error) {
+                console.error('Error in addProduct:', error);
+                alert('Error adding product to cart: ' + error.message);
+            }
+        };
+
+        addProduct();
+    });
+});
+
+        jQuery(document).on('click', '.wfacp_mb_mini_cart_sec_accordion', function (e) {
+            console.log('Order Summary toggle clicked');
+            try {
+                const $this = jQuery(this);
+                const content = $this.next('.wfacp_mb_mini_cart_sec_accordion_content');
+                if (content.length) {
+                    console.log('Order Summary content found, toggling display');
+                    content.toggle();
+                    jQuery(document.body).trigger('wc_fragment_refresh');
+                    console.log('wc_fragment_refresh triggered for order summary');
+                } else {
+                    console.warn('Order Summary content not found');
+                }
+            } catch (error) {
+                console.error('Error toggling Order Summary:', error);
+                alert('Error loading order summary. Please refresh the page and try again.');
+            }
+        });
+
+        document.addEventListener('click', function (e) {
+            if (e.target.closest('.fkcart-close, .fkcart-cart-close, .cart-close')) {
+                console.log('Cart sidebar close button clicked, preventing unnecessary alerts');
+            }
+        });
+
+        document.querySelectorAll('.fkcart-cart-toggle, .cart-toggle').forEach(toggle => {
+            toggle.addEventListener('click', () => {
+                console.log('Manual cart toggle clicked, forcing refresh');
+                jQuery(document.body).trigger('wc_fragment_refresh');
+                jQuery(document.body).trigger('wc_update_cart');
             });
         });
 
         const countdownElement = document.getElementById('countdown-timer');
         if (countdownElement && countdownElement.dataset.launchDate) {
+            console.log('Initializing countdown timer with launch date:', countdownElement.dataset.launchDate);
             const launchDate = new Date(countdownElement.dataset.launchDate).getTime();
             const updateCountdown = () => {
                 const now = new Date().getTime();
                 const timeDiff = launchDate - now;
                 if (timeDiff <= 0) {
+                    console.log('Countdown ended, displaying Launched!');
                     countdownElement.innerHTML = '<span class="launch-soon">Launched!</span>';
                     return;
                 }
@@ -565,7 +791,53 @@ function selectable_boxes_shortcode() {
     </script>
     <?php
     return ob_get_clean();
-} // End selectable_boxes_shortcode
+}
+
+// Add start date to cart item data
+add_filter('woocommerce_add_cart_item_data', function ($cart_item_data, $product_id, $variation_id, $quantity) {
+    if (isset($_POST['start_date']) && !empty($_POST['start_date'])) {
+        $start_date = sanitize_text_field($_POST['start_date']);
+        $cart_item_data['start_date'] = $start_date;
+        error_log('Added start_date to cart item: ' . $start_date);
+    }
+    return $cart_item_data;
+}, 10, 4);
+
+// Save start date to order item meta
+add_action('woocommerce_checkout_create_order_line_item', function ($item, $cart_item_key, $values, $order) {
+    if (isset($values['start_date']) && !empty($values['start_date'])) {
+        $item->add_meta_data('Start Date', $values['start_date'], true);
+        error_log('Saved start_date to order item: ' . $values['start_date']);
+    }
+}, 10, 4);
+
+// Display start date in admin order details
+add_action('woocommerce_order_item_meta_end', function ($item_id, $item, $order, $plain_text) {
+    $start_date = $item->get_meta('Start Date');
+    if ($start_date) {
+        if ($plain_text) {
+            echo "Start Date: $start_date\n";
+        } else {
+            echo '<p><strong>Start Date:</strong> ' . esc_html($start_date) . '</p>';
+        }
+        error_log('Displayed start_date in admin order details: ' . $start_date);
+    }
+}, 10, 4);
+
+// Add start date to customer order email
+add_action('woocommerce_email_order_meta', function ($order, $sent_to_admin, $plain_text, $email) {
+    foreach ($order->get_items() as $item_id => $item) {
+        $start_date = $item->get_meta('Start Date');
+        if ($start_date) {
+            if ($plain_text) {
+                echo "Start Date: $start_date\n";
+            } else {
+                echo '<p><strong>Start Date:</strong> ' . esc_html($start_date) . '</p>';
+            }
+            error_log('Added start_date to order email: ' . $start_date);
+        }
+    }
+}, 10, 4);
 
 add_shortcode('selectable_boxes', 'selectable_boxes_shortcode');
 ?>
