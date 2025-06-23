@@ -215,6 +215,7 @@ function selectable_boxes_shortcode() {
                 <br>No worries! All live courses will be recorded and made available on-demand to all students.
             </p>
         </div>
+        <div class="loader" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999;"></div>
     </div>
 
     <style>
@@ -478,6 +479,25 @@ function selectable_boxes_shortcode() {
                 font-size: 1.2em;
             }
         }
+
+        .loader {
+            width: 50px;
+            padding: 8px;
+            aspect-ratio: 1;
+            border-radius: 50%;
+            background: white;
+            --_m: 
+                conic-gradient(#0000 10%,#000),
+                linear-gradient(#000 0 0) content-box;
+            -webkit-mask: var(--_m);
+                    mask: var(--_m);
+            -webkit-mask-composite: source-out;
+                    mask-composite: subtract;
+            animation: l3 1s infinite linear;
+        }
+        @keyframes l3 {
+            to { transform: rotate(1turn); }
+        }
     </style>
 
     <script>
@@ -485,6 +505,21 @@ function selectable_boxes_shortcode() {
         let wasCartOpened = false;
         let wasCartManuallyClosed = false;
 
+        function showLoader() {
+            const loader = document.querySelector('.loader');
+            if (loader) {
+                console.log('Mostrando loader');
+                loader.style.display = 'block';
+            }
+        }
+
+        function hideLoader() {
+            const loader = document.querySelector('.loader');
+            if (loader) {
+                console.log('Ocultando loader');
+                loader.style.display = 'none';
+            }
+        }
         function selectBox(element, boxId) {
             document.querySelectorAll('.box').forEach(box => {
                 box.classList.remove('selected');
@@ -564,6 +599,7 @@ function selectable_boxes_shortcode() {
                     if (checkVisibility()) {
                         console.log('Sidebar visible after initial attempt');
                         wasCartOpened = true;
+                        hideLoader(); // Ocultar loader cuando el carrito es visible
                         resolve(true);
                         return;
                     }
@@ -572,19 +608,24 @@ function selectable_boxes_shortcode() {
                         if (checkVisibility()) {
                             console.log('Sidebar visible after delay');
                             wasCartOpened = true;
+                            hideLoader(); // Ocultar loader cuando el carrito es visible
                             resolve(true);
                         } else if (wasCartManuallyClosed) {
                             console.log('Cart was manually closed, resolving');
+                            hideLoader(); // Ocultar loader si el carrito fue cerrado manualmente
                             resolve(true);
                         } else {
                             console.log('Sidebar not visible, resolving without alert');
+                            hideLoader(); // Ocultar loader si no se abre el carrito
                             resolve(wasCartOpened);
                         }
                     }, 1000);
-                } catch (error) {
-                    console.error('Error in openFunnelKitCart:', error);
-                    resolve(wasCartOpened || wasCartManuallyClosed);
-                }
+
+                    } catch (error) {
+                        console.error('Error in openFunnelKitCart:', error);
+                        hideLoader(); // Ocultar loader en caso de error
+                        resolve(wasCartOpened || wasCartManuallyClosed);
+                    }
             });
         }
 
@@ -638,22 +679,28 @@ function selectable_boxes_shortcode() {
             document.querySelectorAll('.add-to-cart-button').forEach(button => {
                 button.addEventListener('click', async function (e) {
                     e.preventDefault();
-                    const productId = this.getAttribute('data-product-id');
-                    console.log('Add to cart button clicked, Product ID:', productId);
+                        const productId = this.getAttribute('data-product-id');
+                        console.log('Add to cart button clicked, Product ID:', productId);
+                        const isEnrollButton = this.closest('.enroll-course') !== null;
 
-                    if (!productId || productId === '0') {
-                        console.error('Invalid product ID');
-                        alert('Error: Invalid product. Please try again.');
-                        return;
-                    }
+                        if (isEnrollButton) {
+                            showLoader(); // Mostrar loader solo para "Enroll Now"
+                        }
 
-                    const isEnrollButton = this.closest('.enroll-course') !== null;
-                    console.log('Is enroll button:', isEnrollButton);
-                    if (isEnrollButton && !selectedDate) {
-                        console.error('No start date selected for enroll course');
-                        alert('Please select a start date before adding to cart.');
-                        return;
-                    }
+                        if (!productId || productId === '0') {
+                                console.error('Invalid product ID');
+                                if (isEnrollButton) hideLoader(); // Ocultar loader en caso de error
+                                alert('Error: Invalid product. Please try again.');
+                                return;
+                            }
+
+                            console.log('Is enroll button:', isEnrollButton);
+                            if (isEnrollButton && !selectedDate) {
+                                console.error('No start date selected for enroll course');
+                                hideLoader(); // Ocultar loader en caso de error
+                                alert('Please select a start date before adding to cart.');
+                                return;
+                            }
 
                     const addToCart = (productId, startDate = null) => {
                         console.log('addToCart called with Product ID:', productId, 'Start Date:', startDate);
@@ -712,10 +759,12 @@ function selectable_boxes_shortcode() {
                             console.log('Cart opened successfully:', cartOpened);
                             if (!cartOpened && !wasCartOpened && !wasCartManuallyClosed) {
                                 console.warn('Cart failed to open, notifying user to check manually');
+                                if (isEnrollButton) hideLoader(); // Ocultar loader si no se abre el carrito
                                 alert('The cart may not have updated. Please check the cart manually.');
                             }
                         } catch (error) {
                             console.error('Error in addProduct:', error);
+                            if (isEnrollButton) hideLoader(); // Ocultar loader en caso de error
                             alert('Error adding product to cart: ' + error.message);
                         }
                     };
@@ -791,6 +840,14 @@ function selectable_boxes_shortcode() {
                 setInterval(updateCountdown, 1000);
             }
         });
+
+        document.addEventListener('click', function (e) {
+    if (e.target.closest('.fkcart-close, .fkcart-cart-close, .cart-close, .fkcart-close-btn, .fkcart-panel-close, [data-fkcart-close], .close-cart')) {
+        console.log('Cart sidebar close button clicked');
+        wasCartManuallyClosed = true;
+        hideLoader(); // Ocultar loader si el carrito se cierra manualmente
+    }
+});
     </script>
     <?php
     return ob_get_clean();
