@@ -204,7 +204,10 @@ function selectable_boxes_shortcode() {
                             ?>
                         </div>
                     </div>
-                    <button class="add-to-cart-button" data-product-id="<?php echo esc_attr($enroll_product_id); ?>">Enroll Now</button>
+                    <button class="add-to-cart-button" data-product-id="<?php echo esc_attr($enroll_product_id); ?>">
+                        <span class="button-text">Enroll Now</span>
+                        <span class="loader" style="display: none;"></span>
+                    </button>
                     [seats_remaining]
                 </div>
             <?php endif; ?>
@@ -478,6 +481,61 @@ function selectable_boxes_shortcode() {
                 font-size: 1.2em;
             }
         }
+
+.add-to-cart-button {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 40px; /* Fixed height to match original styling */
+    min-height: 40px; /* Prevent shrinking */
+    max-height: 40px; /* Prevent expansion */
+    padding: 5px 12px;
+    background-color: rgba(255, 255, 255, 0.08);
+    border: none;
+    border-radius: 4px;
+    color: white;
+    font-size: 12px;
+    cursor: pointer;
+    box-sizing: border-box;
+    overflow: hidden; /* Ensure loader doesn't overflow */
+}
+
+.add-to-cart-button.loading .button-text {
+    visibility: hidden;
+}
+
+.add-to-cart-button.loading .loader {
+    display: inline-block;
+}
+
+.loader {
+    width: 8px; /* Smaller size to prevent overflow */
+    height: 8px; /* Smaller size to prevent overflow */
+    border: 2px solid transparent;
+    border-top-color: #fff; /* White color as requested */
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    margin: 0; /* Remove any default margins */
+}
+.loading:before{
+height: 20px!important;
+width: 20px!important;
+border:2px solid rgb(255 255 255 / 50%)!important;
+margin-left:0px!important;
+top: 7px!important;
+left: 45%!important;
+right: 40%!important;
+}
+
+@keyframes spin {
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+}
     </style>
 
     <script>
@@ -640,13 +698,13 @@ function selectable_boxes_shortcode() {
                     e.preventDefault();
                     const productId = this.getAttribute('data-product-id');
                     console.log('Add to cart button clicked, Product ID:', productId);
-
+            
                     if (!productId || productId === '0') {
                         console.error('Invalid product ID');
                         alert('Error: Invalid product. Please try again.');
                         return;
                     }
-
+            
                     const isEnrollButton = this.closest('.enroll-course') !== null;
                     console.log('Is enroll button:', isEnrollButton);
                     if (isEnrollButton && !selectedDate) {
@@ -654,7 +712,10 @@ function selectable_boxes_shortcode() {
                         alert('Please select a start date before adding to cart.');
                         return;
                     }
-
+            
+                    // Show loader
+                    this.classList.add('loading');
+            
                     const addToCart = (productId, startDate = null) => {
                         console.log('addToCart called with Product ID:', productId, 'Start Date:', startDate);
                         return new Promise((resolve, reject) => {
@@ -664,12 +725,12 @@ function selectable_boxes_shortcode() {
                                 quantity: 1,
                                 security: '<?php echo wp_create_nonce('woocommerce_add_to_cart'); ?>'
                             };
-
+            
                             if (startDate) {
                                 data.start_date = startDate;
                                 console.log('Including start_date in AJAX data:', startDate);
                             }
-
+            
                             console.log('Sending AJAX request with data:', data);
                             jQuery.post('<?php echo esc_url(admin_url('admin-ajax.php')); ?>', data, function (response) {
                                 console.log('AJAX response received:', response);
@@ -686,27 +747,27 @@ function selectable_boxes_shortcode() {
                             });
                         });
                     };
-
+            
                     const addProduct = async () => {
                         console.log('Starting addProduct process');
                         try {
                             const cartContents = await getCartContents();
                             console.log('Current cart contents before adding:', cartContents);
-
+            
                             const response = await addToCart(productId, isEnrollButton ? selectedDate : null);
                             console.log('Triggering added_to_cart with fragments and cart_hash');
                             jQuery(document.body).trigger('added_to_cart', [response.fragments, response.cart_hash]);
                             jQuery(document.body).trigger('wc_fragment_refresh');
-
+            
                             setTimeout(() => {
                                 console.log('Forcing delayed cart refresh');
                                 jQuery(document.body).trigger('wc_fragment_refresh');
                                 jQuery(document).trigger('fkcart_open_cart');
                             }, 1000);
-
+            
                             const updatedCartContents = await getCartContents();
                             console.log('Cart contents after adding product:', updatedCartContents);
-
+            
                             console.log('Calling openFunnelKitCart');
                             const cartOpened = await openFunnelKitCart();
                             console.log('Cart opened successfully:', cartOpened);
@@ -717,9 +778,12 @@ function selectable_boxes_shortcode() {
                         } catch (error) {
                             console.error('Error in addProduct:', error);
                             alert('Error adding product to cart: ' + error.message);
+                        } finally {
+                            // Hide loader
+                            button.classList.remove('loading');
                         }
                     };
-
+            
                     addProduct();
                 });
             });
