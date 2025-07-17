@@ -1,0 +1,1272 @@
+
+
+
+#fkcart-floating-toggler {
+    position: fixed;
+    top: auto;
+    bottom: 20px;
+    right: 15px;
+}
+
+.sticky-cta p:last-child{ margin-bottom:0px;}
+
+
+
+/* Contact Form 7 - Dark Mode + Pink Focus + Margin */
+
+.wpcf7-form label {
+  color: white;
+  display: block;
+  margin-bottom: 15px!important;
+  font-weight: 500;
+}
+
+.wpcf7-form input[type="text"],
+.wpcf7-form input[type="email"],
+.wpcf7-form textarea {
+  background-color: black;
+  color: white;
+  border: 1px solid #666;
+  padding: 10px;
+  width: 100%;
+  font-size: 14px;
+  border-radius: 4px;
+  box-sizing: border-box;
+  margin-bottom: 15px; /* Add spacing below fields */
+  transition: border-color 0.3s ease;
+}
+
+.wpcf7-form input[type="text"]:focus,
+.wpcf7-form input[type="email"]:focus,
+.wpcf7-form textarea:focus {
+  border-color: #e910d3; /* Custom pink */
+  outline: none;
+}
+
+.wpcf7-form input[type="submit"] {
+  background-color: white;
+  color: black;
+  padding: 10px 20px;
+  font-weight: bold;
+  border: none;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.3s ease;
+}
+
+.wpcf7-form input[type="submit"]:hover {
+  background-color: #ddd;
+}
+
+
+/* end form*/
+
+
+
+
+
+
+@media (max-width: 768px) {
+  .lms-title-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;      /* Limit to 2 lines */
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+
+/* ================================
+   Fade-In Up Entrance Animation
+================================ */
+@keyframes fadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(140px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ================================
+   Card Container
+================================ */
+.card-teacher {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(50px);
+  animation: fadeInUp 1.2s cubic-bezier(0.33, 1, 0.68, 1) forwards;
+  will-change: opacity, transform;
+  font-family: inherit;
+}
+
+/* ================================
+   Background Image & Hover Zoom
+================================ */
+.card-teacher::before {
+  content: '';
+  position: absolute;
+  background-size: cover;
+  background-position: center;
+  z-index: 0;
+  transition: transform 0.6s ease, filter 0.6s ease;
+}
+
+.card-teacher:hover::before {
+  transform: scale(1.05);
+  filter: brightness(2);
+}
+
+/* ================================
+   Gradient Overlay (STRONGER)
+================================ */
+.card-teacher::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.7); /* dark overlay */
+  opacity: 0;
+  z-index: 0.2; /* below content */
+  transition: opacity 0.9s ease;
+  pointer-events: none;
+}
+
+
+.card-teacher:hover::after {
+  opacity: 1;
+}
+
+/* ================================
+   Layered Content
+================================ */
+.card-teacher > * {
+  position: relative;
+  z-index: 2; /* content always on top */
+}
+
+/* ================================
+   Content Sections
+================================ */
+.basic-teacher {
+  margin: 0;
+  padding: 0;
+}
+
+.hover-teacher {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+ 
+  margin: 0;
+  padding: 0;
+}
+
+.hover-teacher > * {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Hover effects */
+
+.card-teacher:hover .hover-teacher {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+
+/* control axis and push hover */
+
+
+
+
+.basic-teacher, .hover-teacher,
+.teacher-main-wrapper {
+  overflow: visible !important;
+}
+
+
+
+/* Hide Plus Icon on Hover and Mobile Active */
+.card-teacher:hover .plus-mobile,
+.card-teacher.active .plus-mobile {
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.plus-mobile {
+  visibility: visible;
+  opacity: 1;
+  transition: opacity 0.2s ease;
+}
+
+
+
+.description-teacher {
+  color: rgba(255, 255, 255, 1)!important;
+	letter-spacing: 0.05em;
+	font-size: 14px!important;
+  line-height: 140%;
+	font-weight: 300!important;
+}
+
+.status-teacher {
+  margin-top: -5px !important;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* ================================
+   CTA selling page butotn
+================================ */
+.statebox .description{
+text-align:left;
+}
+
+
+.date-btn {
+  width: 100% !important;
+  max-width: 100% !important;
+  padding: 6px 12px !important;
+  font-size: 0.9em !important;
+}
+
+/* Responsive tweaks */
+@media (max-width: 768px) {
+  .date-btn {
+    width: 100% !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .date-btn {
+    width: 100% !important;
+    display: block !important;
+  }
+}
+
+/* text & description */
+
+.box-container .box .description {
+    font-size: 14px!important;
+		color: rgba(255, 255, 255, 0.7) !important;
+}
+
+
+.text-outside-box {
+    color: white!important;
+		font-size: 14px!important;
+		margin-top: -20px!important;
+		padding: 20px!important;
+}
+
+.text-outside-box p{
+		font-size: 14px!important;
+}
+
+
+
+/* title */
+.box-container .box h3 {
+    font-size: 18px!important;
+		padding-top: 0px!important;
+}
+
+.statebox .price {
+    padding: 1px 1px !important;
+    margin: 1px !important;
+		font-size: 20px!important;
+}
+
+
+
+.statebox h3 {
+    padding: 0px !important;
+}
+
+.box-container .box h3 {
+    margin-left: 0px !important;
+}
+/* checkbox state margin */
+.box-container .circlecontainer {
+    margin-top: 6px!important;
+		margin-left: 0px!important;
+		margin-right: 10px!important;
+}
+
+/* select box padding*/
+.box-container .box.selected {
+    padding: 20px!important;
+}
+
+.add-to-cart-button {
+    width: 100% !important;
+		border-radius: 60px!important;
+		margin-top:15px;
+    background-color: #de04a4!important;
+    color: white !important;
+    border: none;
+    padding: 10px 15px;
+    font-size: 16px !important;
+    transition: background-color 0.3s ease;
+    position: relative;
+}
+
+.add-to-cart-button:hover {
+    background-color: #a30089 !important; /* Darker pink on hover */
+}
+
+.add-to-cart-button {
+    width: 100% !important;
+    margin-top: 25px;
+}
+
+
+/* seats remaining */
+
+.seats-remaining-container {
+    margin: 0px!important;
+		margin-top: 20px!important;
+		margin-bottom: 0px!important;
+}
+
+.seats-remaining-container p {
+	color: rgba(255, 255, 255, 0.7) !important;
+	font-size: 14px !important;
+	font-family: 'Poppins', sans-serif !important;
+	font-weight: 300 !important; 
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* auth login navbar */
+
+.elementor-48181 .elementor-element.elementor-element-6729b33 span.ms-lms-authorization-icon {
+  padding:20px;  
+	height: 40px;
+  background-color: #0E0D0F!important;
+	border-radius: 0px!important;
+}
+
+
+
+i.far.fa-user {
+    margin-top: 15px;
+}
+
+@media (max-width: 767px) {
+  i.far.fa-user {
+    margin-top: 3px !important;
+  }
+}
+
+.masterstudy-authorization__switch-account-title,
+.masterstudy-authorization__switch-lost-pass {
+    color: rgba(255, 255, 255, 0.6) !important; /* adjust 0.6 to control opacity */
+}
+
+
+
+.masterstudy-authorization__send-mail-content-title, .masterstudy-authorization__send-mail-title, .col-md-12 {
+    color: white!important;
+}
+
+
+.stm_lms_edit_email_notifications_list, .stm_lms_edit_socials_list {
+    background-color: #0E0D0F!important;
+}
+
+.stm_lms_edit_account button.btn.btn-default.btn-save-account, .div.multiseparator:after {
+    background-color: #DE00A5!important;
+}
+
+
+
+
+
+/* Remove tap highlight on mobile */
+.elementor-48181 .elementor-element.elementor-element-6729b33 span.ms-lms-authorization-icon {
+  -webkit-tap-highlight-color: transparent;
+  background-color: #0E0D0F !important;
+  border-radius: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Also cancel on active/focus/tap states */
+.elementor-48181 .elementor-element.elementor-element-6729b33 span.ms-lms-authorization-icon:focus,
+.elementor-48181 .elementor-element.elementor-element-6729b33 span.ms-lms-authorization-icon:active {
+  background-color: #0E0D0F !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+
+
+
+/* avatar master study 1st code */
+
+
+body .masterstudy-instructor-public__avatar {
+    border: 0px red;
+}
+
+body .masterstudy-instructor-public__name {
+    color: white;
+}
+
+
+body .masterstudy-instructor-public__position {
+    color: white;
+}
+
+
+
+
+body .ms_lms_courses_card.card-style-4 .ms_lms_courses_card_item_info {
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 1) 100%) !important;
+}
+
+
+
+
+
+
+
+body .stm_lms_acc_tabs__main,
+body .stm_lms_acc_tabs.has_sub_items {
+    background-color: black !important;
+    border-top: 0px !important;
+}
+
+.stm_lms_acc_tabs__main {
+    margin: 0 0 40px;
+    display: flex;
+}
+
+.stm_lms_acc_tabs.has_sub_items {
+    padding-right: 50px;
+}
+
+
+
+
+
+
+
+
+
+/* User info top */
+.stm_lms_user_info_top h3,
+.stm_lms_user_info_top h5.student_name_pos {
+    color: white !important;
+}
+
+/* Buttons */
+.stm-lms-user_create_announcement_btn a span,
+.stm-lms-user_edit_profile_btn a span {
+    color: white !important;
+}
+
+/* Analytics title */
+.masterstudy-analytics-short-report-page__title {
+    color: white !important;
+}
+
+/* Instructor courses title */
+.stm_lms_instructor_courses__single--title h5 {
+    color: white !important;
+}
+
+
+
+
+
+
+body .page-404 {
+    background-color: #0c0d0e!important;
+}
+
+body .starter-button
+{
+    background-color: #de04a4!important;
+		border-color: #de04a4;
+}
+
+
+body .starter-button:hover
+{
+    background-color: black!important;
+		border-color: black;
+		color: white;
+}
+
+
+
+
+
+
+
+
+
+
+/* Instructor courses top heading */
+.stm_lms_instructor_courses__top h3:not(.active) {
+    color: white !important;
+}
+
+/* Course filters links */
+.stm_lms_instructor_courses__top .masterstudy-lms-course-filters a:not(.active) {
+    color: white !important;
+}
+
+/* List items in various contexts */
+.comment-body ul li:not(.active),
+.elementor-widget-text-editor .elementor-widget-container ul li:not(.active),
+.entry-content ul li:not(.active),
+.textwidget ul li:not(.active) {
+    color: white !important;
+}
+
+
+
+
+
+
+.masterstudy-instructor-public__avatar {
+    border: 0px red;
+}
+
+
+
+
+
+
+
+
+.card {
+  position: relative;
+  border-radius: 12px; /* Add your desired border radius */
+  overflow: hidden;
+  --active: 1; /* Default state is animated */
+	
+}
+
+.card:hover {
+  --active: 0; /* Stop animation on hover */
+}
+
+/* Background effect */
+.card:after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    circle at var(--highlight-x) var(--highlight-y),
+    rgba(143, 103, 213, 0.15),
+    transparent 15vmin
+  );
+  opacity: 1;
+  pointer-events: none;
+}
+
+/* Border glow effect */
+.card:before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    circle at var(--highlight-x) var(--highlight-y),
+    rgba(143, 103, 213, 0.5),
+    transparent 15vmin
+  );
+  pointer-events: none;
+  /* Create the border mask */
+  -webkit-mask: 
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: 
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  padding: 4px; /* Border width */
+  box-sizing: border-box;
+	
+}
+
+.element {
+  animation-duration: 100s;
+}
+
+
+
+.card {
+  visibility:hidden;
+}
+
+
+
+
+
+
+
+
+
+.thumbnail-home-css .lms-title {
+  margin-top: 10px;
+}
+
+
+
+
+
+.instructor-lms-avatar img {
+	width: 40px;
+	border-radius: 200px!important;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* course card image rounded */
+.course-card .elementor-widget-container img {
+    border-radius: 50px !important;
+    width: 30px;
+    height: 30px;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+  /* Dark course mode */
+  /* Dark course mode */
+  /* Dark course mode */
+  /* Dark course mode */
+  /* Dark course mode */
+
+.masterstudy-single-course-description__content h1, {
+    color: white;
+}
+
+.masterstudy-single-course-description__content h1, .masterstudy-single-course-description__content h2, .masterstudy-single-course-description__content h3, .masterstudy-single-course-description__content h4, .masterstudy-single-course-description__content h5, .masterstudy-single-course-description__content h6 {
+    color: white;
+}
+
+
+.masterstudy-single-course-full-width__wrapper {
+    background:#0b070c!important;
+}
+
+
+.masterstudy-single-course-current-students__count,
+.masterstudy-single-course-description__content h1, .masterstudy-single-course-description__content h2, .masterstudy-single-course-description__content h3, .masterstudy-single-course-description__content h4, .masterstudy-single-course-description__content h5, .masterstudy-single-course-description__content h6 {
+    color: white;
+}
+
+h1.masterstudy-single-course-title,
+.masterstudy-single-course-instructor a.masterstudy-single-course-instructor__name,
+.masterstudy-single-course-rating__count,
+.masterstudy-single-course-details__title,
+.masterstudy-single-course-details__quantity,
+.masterstudy-popular-courses__title,
+.masterstudy-popular-courses__item a.masterstudy-popular-courses__item-title,
+.masterstudy-popular-courses__price-sale,
+.masterstudy-related-courses__item a.masterstudy-related-courses__item-title,
+.masterstudy-related-courses__price-sale,
+.masterstudy-related-courses__title,
+.masterstudy-single-course-reviews__login
+{
+    color: #fff !important;
+}
+
+.masterstudy-single-course-categories a.masterstudy-single-course-categories__item,
+.masterstudy-single-course-excerpt__hidden, .masterstudy-single-course-excerpt__visible,
+.masterstudy-single-course-instructor__title,
+.masterstudy-single-course-rating__quantity,
+.masterstudy-single-course-tabs.masterstudy-single-course-tabs_style-underline .masterstudy-single-course-tabs__item,
+.masterstudy-single-course-wishlist__title,
+.masterstudy-single-course-share-button__title,
+.masterstudy-single-course-wishlist__title::before,
+.masterstudy-single-course-share-button__title::before,
+.masterstudy-single-course-details__icon::before,
+.masterstudy-single-course-details__name,
+.masterstudy-curriculum-list__wrapper.masterstudy-curriculum-list__wrapper_opened .masterstudy-curriculum-list__toggler::after,
+.masterstudy-related-courses a.masterstudy-related-courses__instructor,
+.masterstudy-popular-courses a.masterstudy-popular-courses__instructor,
+.masterstudy-related-courses__price.masterstudy-related-courses__price_sale,
+.masterstudy-popular-courses__price.masterstudy-popular-courses__price_sale,
+.masterstudy-single-course-description__content p
+{
+    color: #BBBFCA !important;
+}
+
+
+/*checkout cart section*/
+.table-col-1.product-thum-name {
+    color: black;
+}
+
+.table-col-2.product-quantity {
+    color: black;
+}
+
+.table-col-3.product-total.eael-checkout-cart-item-total {
+    color: black;
+}
+
+
+img.nav-external-icon {
+    width: 15px;
+		padding-left:1px;
+    height: auto;
+}
+
+
+
+
+
+
+
+
+/*Enrolled courses*/
+.masterstudy-enrolled-courses-sorting {
+    display: none!important;;
+}
+
+.masterstudy-enrolled-courses-tabs {
+    display: none!important;;
+}
+
+.stm_lms_instructor_courses__grid {
+    justify-content: space-between!important;;
+}
+
+
+
+
+
+
+
+
+
+
+
+/* Default: Mobile - 1 per row */
+.stm_lms_instructor_courses__single {
+    width: 100% !important;
+    margin: 0 0 25px;
+}
+
+/* Tablet: 2 per row */
+@media (min-width: 768px) {
+    .stm_lms_instructor_courses__single {
+        width: 48% !important; /* Slightly less than 50% to allow for margin/gap */
+        margin-right: 4%;
+    }
+
+    /* Remove margin-right on even items for proper wrapping */
+    .stm_lms_instructor_courses__single:nth-child(2n) {
+        margin-right: 0;
+    }
+}
+
+/* Desktop: 3 per row */
+@media (min-width: 1024px) {
+    .stm_lms_instructor_courses__single {
+        width: 31.33% !important; /* 3 columns with ~2% gap */
+        margin-right: 3.5%;
+    }
+
+    /* Remove margin-right on every third item */
+    .stm_lms_instructor_courses__single:nth-child(3n) {
+        margin-right: 0;
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+.stm_lms_instructor_courses__single__inner {
+    border: 0px!important;
+}
+
+.stm_lms_instructor_courses__single--title h5 {
+    font-size: 20px !important;
+}
+
+.stm-lms-user-courses .stm_lms_instructor_courses__single--progress_top {
+    color: white !important;
+}
+
+
+/*dashboard tabs*/
+.stm_lms_acc_tabs .float_menu_item__inline.float_menu_item_active i, .stm_lms_acc_tabs .float_menu_item__inline.float_menu_item_active span, .stm_lms_acc_tabs .float_menu_item__inline:hover i, .stm_lms_acc_tabs .float_menu_item__inline:hover span {
+    color: #DE00A5!important;
+}
+
+
+/*dashboard tabs*/
+
+.stm_lms_acc_tabs .float_menu_item__inline.float_menu_item_active, .stm_lms_acc_tabs .float_menu_item__inline:active {
+    background-color: #0E0D0F!important;
+}
+.stm_lms_acc_tabs .float_menu_item__inline.float_menu_item_active, .stm_lms_acc_tabs .float_menu_item__inline:hover {
+    background-color: #0E0D0F!important;
+}
+
+.stm_lms_instructor_courses__single--progress_filled {
+    background: purple !important;
+}
+
+
+
+
+
+
+
+
+
+
+body .stm_lms_acc_tabs__main, body .stm_lms_acc_tabs.has_sub_items {
+    background-color: #0E0D0F !important;
+    border-top: 0px !important;
+}
+
+.stm-lms-user-courses .stm_lms_instructor_courses__single--enroll .btn {
+    background-color: #DE00A5!important;
+}
+
+
+/*login page*/
+span.masterstudy-authorization__header-title {
+    color: white;
+}
+
+span.masterstudy-authorization__checkbox-title {
+    color: white;
+}
+
+span.masterstudy-authorization__restore-header-title {
+    color: white;
+}
+
+
+/*instructor photo selling page*/
+#instructor-info-header img.instructor-photo {
+    width: 50px!important;
+    height: auto;
+    border-radius: 50%;
+}
+
+#instructor-info img.instructor-photo {
+    border-radius: 50%!important;
+}
+
+/*User LMS Dashboard*/
+/*User LMS Dashboard*/
+/*User LMS Dashboard*/
+#stm-lms-course-no-result p {
+    color: white !important;
+}
+
+.masterstudy-orders div.multiseparator:after {
+    background-color: #DE00A5 !important;
+}
+
+
+
+
+/*color button in dashboard*/
+/*color button in dashboard*/
+stm_lms_button .stm-lms-user-courses .stm_lms_instructor_courses__single--enroll a.btn.btn-default:visited{
+background-color: #DE00A5 !important;
+}
+
+
+
+.stm_lms_instructor_courses__single--inner {
+    padding: 0px !important;
+}
+
+/*color button in dashboard*/
+body.stm_lms_button .stm-lms-user-courses .stm_lms_instructor_courses__single--enroll a.btn.btn-default:active, body.stm_lms_button .stm-lms-user-courses .stm_lms_instructor_courses__single--enroll a.btn.btn-default:focus, body.stm_lms_button .stm-lms-user-courses .stm_lms_instructor_courses__single--enroll a.btn.btn-default:hover, body.stm_lms_button .stm-lms-user-courses .stm_lms_instructor_courses__single--enroll a.btn.btn-default:visited {
+    background-color: #DE00A5 !important;
+}
+
+
+	
+
+
+.wp-child-theme-ms-lms-starter-theme-child {
+    background-color: #0E0D0F !important;
+}
+
+
+
+
+
+/*User LMS Dashboard
+@media (max-width: 1000px) {
+  .elementor-nav-menu {
+    display: none !important;
+  }
+}
+
+*/
+
+
+/* Target the specific button */
+#place_order.button.alt {
+  background-color: pink;
+  color: black;
+  border: none;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+#place_order.button.alt:hover {
+  background-color: black;
+  color: white;
+}
+
+
+.masterstudy-orders-details__date,
+.masterstudy-orders-details__id {
+    color: #fff !important;
+}
+
+
+.stm-lms-my-points
+{
+    visibility: hidden;
+}
+
+
+
+
+.masterstudy-single-course-current-students, .masterstudy-single-course-current-students__wrapper{
+    visibility: hidden;
+}
+
+
+.masterstudy-curriculum-list__section-title, .masterstudy-curriculum-list__title
+{
+    color: white!important;
+}
+
+.masterstudy-curriculum-list__item 
+{
+    background-color: #ffffff12!important;
+}
+
+
+.wfacp-order-place-btn-wrap button#place_order {
+    background-color: #DE00A5!important;
+}
+
+
+
+
+
+
+
+
+
+
+
+/* ============================================================
+   CARD CONTAINER STYLING
+   ============================================================ */
+.tbn-course-card {
+  position: relative;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+  transition: background-size 1.2s ease;
+  will-change: background-size;
+}
+
+/* ============================================================
+   BACKGROUND ZOOM ON HOVER
+   ============================================================ */
+.tbn-course-card:hover {
+  background-size: 112%;
+}
+
+/* ============================================================
+   CONTAINER FOR BASIC + HOVER INFO
+   ============================================================ */
+.tbn-course-box {
+  transform: translateY(0);
+  transition: transform 0.8s ease; /* Smooth, natural ease */
+  will-change: transform;
+}
+
+/* ============================================================
+   PUSH CONTENT UP ON HOVER
+   ============================================================ */
+.tbn-course-box {
+  transform: translateY(5);
+  transition: transform 2s ease-in; /* Apply easing here */
+}
+
+
+/* ============================================================
+   HOVER INFO DEFAULT STATE (HIDDEN)
+   ============================================================ */
+.tbn-hover-info {
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: opacity 0.8s ease, max-height 0.8s ease;
+  pointer-events: none;
+}
+
+/* ============================================================
+   SHOW HOVER INFO ON HOVER
+   ============================================================ */
+.tbn-course-card:hover .tbn-hover-info {
+  opacity: 1;
+  max-height: 500px;
+  pointer-events: auto;
+}
+
+
+/* ============================================================
+   WAITING LIST BOX
+   ============================================================ */
+
+
+        .box-container .course-launch {
+            position: relative;
+            max-width: 350px;
+            width: 100%;
+            padding: 15px;
+            background: #0E0D0F;
+            border: 2px solid #9B9FAA7A;
+            border-radius: 15px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        .box-container .course-launch h3 {
+            color: #fff;
+            margin: 0;
+            font-size: 1.5em;
+        }
+
+        .box-container .course-launch .description {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.64);
+            margin: 10px 0;
+        }
+
+        .box-container .terms {
+            font-size: 0.7em;
+            color: #aaa;
+        }
+
+        .box-container .launch-soon {
+            font-size: 1.2em;
+            color: #fff;
+        }
+
+        @media (max-width: 767px) {
+            .box-container .course-launch {
+                padding: 10px;
+            }
+            .box-container .course-launch h3 {
+                font-size: 1.2em;
+            }
+        }
+
+input.wpcf7-form-control.wpcf7-submit
+{
+    width: 100% !important;
+    height: 50px;
+    border-radius: 60px !important;
+    margin-top: 15px;
+    background-color: #de04a4 !important;
+    color: white !important;
+    border: none;
+    padding: 10px 15px;
+    font-size: 16px !important;
+    transition: background-color 0.3s ease;
+    position: relative;
+}
+
+
+/* ============================================================
+LMS DASHBOARD   ============================================================ */
+
+.stm_lms_instructor_courses__single--inner .stm_lms_instructor_courses__single--started {
+display: none!important;
+}
+
+
+/* ============================================================
+Checkout button
+============================================================ */
+
+.launch-subline{
+	font-size: 14px;
+}
+
+.launch-terms{
+	font-size: 12px;
+	margin-top: -20px;
+}
+
+
+
+/* 
+============================================================
+Selectable boxes counter
+============================================================ */
+.box-container .time-unit,
+.box-container .time-value {
+    display: block !important;
+}
+
+
+
+
+
+
+
+/* 
+============================================================
+Popup selectable box
+
+============================================================ */
+@media (max-width: 767px) {
+.box-container .box.selected {
+    padding-left: 10px !important;
+		padding-right: 10px !important;
+}
+
+
+.box-container .box {
+    margin-bottom: 0px !important;
+}
+
+.text-outside-box {
+    padding-top: 0px !important;
+}
+}
+
+p.choose-label {
+    font-size: 18px !important;
+}
+
+
+
+
+/* 
+============================================================
+Accordion in selling page
+
+============================================================ */
+#uc_content_accordion_elementor_fb4938c .uc_container .uc-heading {
+
+    padding-left: 30px;
+}
+
+
+.ue_heading_title {
+    padding: 0px 20px!important;
+}
+
+/* 
+============================================================
+Mobile - Touch Profile Button
+
+============================================================ */
+
+button#dLabel{
+background-color:transparent!important;
+border:0px!important;
+}
