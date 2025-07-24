@@ -2,7 +2,7 @@
 /*
  * Plugin Name: Course Box Manager
  * Description: A comprehensive plugin to manage and display selectable boxes for course post types with dashboard control, countdowns, start date selection, and WooCommerce integration.
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: Carlos Murillo
  * Author URI: https://lucumaagency.com/
  * License: GPL-2.0+
@@ -10,6 +10,49 @@
 
 if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly
+}
+
+// Register course_group taxonomy
+add_action('init', 'register_course_group_taxonomy');
+function register_course_group_taxonomy() {
+    register_taxonomy('course_group', ['stm-courses', 'product', 'selling_page'], [
+        'labels' => [
+            'name' => __('Course Groups'),
+            'singular_name' => __('Course Group'),
+        ],
+        'hierarchical' => false,
+        'show_ui' => true,
+        'show_in_menu' => true,
+        'show_admin_column' => true,
+        'rewrite' => ['slug' => 'course-group'],
+    ]);
+}
+
+// Register selling_page CPT
+add_action('init', 'register_selling_page_cpt');
+function register_selling_page_cpt() {
+    register_post_type('selling_page', [
+        'labels' => [
+            'name' => __('Selling Pages'),
+            'singular_name' => __('Selling Page'),
+        ],
+        'public' => true,
+        'supports' => ['title', 'editor', 'custom-fields'],
+        'has_archive' => true,
+    ]);
+}
+
+// Register instructor CPT
+add_action('init', 'register_instructor_cpt');
+function register_instructor_cpt() {
+    register_post_type('instructor', [
+        'labels' => [
+            'name' => __('Instructors'),
+            'singular_name' => __('Instructor'),
+        ],
+        'public' => true,
+        'supports' => ['title', 'editor', 'custom-fields'],
+    ]);
 }
 
 // Enable FunnelKit Cart for course post type
@@ -20,13 +63,13 @@ add_filter('fkcart_disabled_post_types', function ($post_types) {
     return $post_types;
 });
 
-// Add admin menu
+// Add admin menu for dashboard
 add_action('admin_menu', 'course_box_manager_menu');
 function course_box_manager_menu() {
     add_menu_page(
         'Course Box Manager',
         'Course Boxes',
-        'manage_options',
+        'edit_posts', // Instructors (with edit_posts capability) can view
         'course-box-manager',
         'course_box_manager_page',
         'dashicons-list-view',
@@ -36,245 +79,625 @@ function course_box_manager_menu() {
 
 // Dashboard page content
 function course_box_manager_page() {
-    $courses = get_posts([
-        'post_type' => 'course',
-        'post_status' => 'publish',
-        'posts_per_page' => -1,
-        'fields' => 'ids',
+    // Get all course_group terms
+    $course_groups = get_terms([
+        'taxonomy' => 'course_group',
+        'hide_empty' => false,
     ]);
 
     ?>
     <div class="wrap">
         <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
-        <table class="wp-list-table widefat fixed striped">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Title</th>
-                    <th>Box State</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($courses as $course_id) {
-                    $title = get_the_title($course_id);
-                    $show_buy_course = get_option('course_box_show_buy_' . $course_id, '0');
-                    $show_enroll_course = get_option('course_box_show_enroll_' . $course_id, '0');
-                    $show_waitlist = get_option('course_box_show_waitlist_' . $course_id, '0');
-                    $show_soldout = get_option('course_box_show_soldout_' . $course_id, '0');
-                    $current_state = 'enroll-course'; // Default to Enroll in the Live Course
-                    if ($show_soldout === '1') $current_state = 'soldout';
-                    elseif ($show_waitlist === '1') $current_state = 'waitlist';
-                    elseif ($show_buy_course === '1') $current_state = 'buy-course';
-                    ?>
+        <input type="text" id="group-search" placeholder="Search groups...">
+        <?php if (!isset($_GET['group_id'])) : ?>
+            <!-- Main View: Group Table -->
+            <table class="wp-list-table widefat fixed striped">
+                <thead>
                     <tr>
-                        <td><?php echo esc_html($course_id); ?></td>
-                        <td><?php echo esc_html($title); ?></td>
-                        <td>
-                            <select class="box-state-select" data-course-id="<?php echo esc_attr($course_id); ?>">
-                                <option value="enroll-course" <?php echo $current_state === 'enroll-course' ? 'selected' : ''; ?>>Enroll in the Live Course</option>
-                                <option value="buy-course" <?php echo $current_state === 'buy-course' ? 'selected' : ''; ?>>Buy This Course</option>
-                                <option value="waitlist" <?php echo $current_state === 'waitlist' ? 'selected' : ''; ?>>Waitlist</option>
-                                <option value="soldout" <?php echo $current_state === 'soldout' ? 'selected' : ''; ?>>Sold Out</option>
-                            </select>
-                        </td>
+                        <th>Grupo</th>
+                        <th>Instructores</th>
+                        <th>Página de Venta</th>
+                        <th>Estado de Boxes</th>
+                        <th>Acciones</th>
                     </tr>
-                <?php } ?>
-            </tbody>
-        </table>
-        <button class="button button-primary" id="save-all-box-settings">Save All Settings</button>
+                </thead>
+                <tbody>
+                    <?php foreach ($course_groups as $group) :
+                        $courses = get_posts([
+                            'post_type' => 'stm-courses',
+                            'posts_per_page' => -1,
+                            'fields' => 'ids',
+                            'tax_query' => [
+                                [
+                                    'taxonomy' => 'course_group',
+                                    'field' => 'term_id',
+                                    'terms' => $group->term_id,
+                                ],
+                            ],
+                        ]);
 
-        <div id="box-edit-modal" class="box-edit-modal" style="display:none;">
-            <div class="box-edit-content">
-                <span class="box-edit-close">×</span>
-                <h2>Edit Selectable Boxes</h2>
-                <input type="hidden" id="current-course-id">
-                <label><input type="checkbox" id="show-buy-course"> Show "Buy This Course" Box</label><br>
-                <label><input type="checkbox" id="show-enroll-course"> Show "Enroll in the Live Course" Box</label><br>
-                <label><input type="checkbox" id="show-waitlist"> Show Waitlist Box</label><br>
-                <label><input type="checkbox" id="show-soldout"> Show Sold Out Box</label><br>
-                <button class="button button-primary" id="save-box-settings">Save Settings</button>
+                        $instructors = [];
+                        $box_states = [];
+                        foreach ($courses as $course_id) {
+                            $instructors = array_merge($instructors, get_post_meta($course_id, 'course_instructors', true) ?: []);
+                            $state = get_post_meta($course_id, 'box_state', true) ?: 'enroll-course';
+                            $box_states[] = get_the_title($course_id) . ': ' . ucfirst(str_replace('-', ' ', $state));
+                        }
+                        $instructors = array_unique($instructors);
+                        $instructor_names = array_map(function($id) { return get_the_title($id); }, $instructors);
+
+                        $selling_page = get_posts([
+                            'post_type' => 'selling_page',
+                            'posts_per_page' => 1,
+                            'tax_query' => [
+                                [
+                                    'taxonomy' => 'course_group',
+                                    'field' => 'term_id',
+                                    'terms' => $group->term_id,
+                                ],
+                            ],
+                        ]);
+                        $selling_page_id = !empty($selling_page) ? $selling_page[0]->ID : 0;
+                    ?>
+                        <tr>
+                            <td><a href="?page=course-box-manager&group_id=<?php echo esc_attr($group->term_id); ?>"><?php echo esc_html($group->name); ?></a></td>
+                            <td><?php echo esc_html(implode(', ', $instructor_names)); ?></td>
+                            <td>
+                                <?php if ($selling_page_id) : ?>
+                                    <a href="<?php echo esc_url(get_permalink($selling_page_id)); ?>" target="_blank"><?php echo esc_html(get_the_title($selling_page_id)); ?></a>
+                                <?php else : ?>
+                                    No asignada
+                                <?php endif; ?>
+                            </td>
+                            <td><?php echo esc_html(implode(', ', $box_states)); ?></td>
+                            <td>
+                                <button class="button button-primary save-group-settings" data-group-id="<?php echo esc_attr($group->term_id); ?>">Guardar</button>
+                                <button class="button edit-group-settings" data-group-id="<?php echo esc_attr($group->term_id); ?>">Editar</button>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        <?php else : ?>
+            <!-- Detail View: Group Panel -->
+            <?php
+            $group_id = intval($_GET['group_id']);
+            $group = get_term($group_id, 'course_group');
+            $courses = get_posts([
+                'post_type' => 'stm-courses',
+                'posts_per_page' => -1,
+                'fields' => 'ids',
+                'tax_query' => [
+                    [
+                        'taxonomy' => 'course_group',
+                        'field' => 'term_id',
+                        'terms' => $group_id,
+                    ],
+                ],
+            ]);
+            ?>
+            <h2>Grupo: <?php echo esc_html($group->name); ?></h2>
+            <button class="button button-primary add-course" data-group-id="<?php echo esc_attr($group_id); ?>">Añadir Curso</button>
+            <a href="?page=course-box-manager" class="button">Volver</a>
+            <table class="wp-list-table widefat fixed striped">
+                <thead>
+                    <tr>
+                        <th>Curso</th>
+                        <th>Instructores</th>
+                        <th>Estado de Box</th>
+                        <th>Stock</th>
+                        <th>Fechas</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($courses as $course_id) :
+                        $title = get_the_title($course_id);
+                        $instructors = get_post_meta($course_id, 'course_instructors', true) ?: [];
+                        $instructor_names = array_map(function($id) { return get_the_title($id); }, $instructors);
+                        $box_state = get_post_meta($course_id, 'box_state', true) ?: 'enroll-course';
+                        $webinar_stock = get_field('course_stock', $course_id) ?: 0;
+                        $dates = get_field('course_dates', $course_id) ?: [];
+                        $is_group_course = preg_match('/ - G\d+$/', $title);
+                    ?>
+                        <tr>
+                            <td><?php echo esc_html($title); ?></td>
+                            <td>
+                                <select class="instructor-select" data-course-id="<?php echo esc_attr($course_id); ?>" multiple>
+                                    <?php
+                                    $all_instructors = get_posts(['post_type' => 'instructor', 'posts_per_page' => -1]);
+                                    foreach ($all_instructors as $instructor) {
+                                        echo '<option value="' . esc_attr($instructor->ID) . '"' . (in_array($instructor->ID, $instructors) ? ' selected' : '') . '>' . esc_html($instructor->post_title) . '</option>';
+                                    }
+                                    ?>
+                                </select>
+                            </td>
+                            <td>
+                                <select class="box-state-select" data-course-id="<?php echo esc_attr($course_id); ?>">
+                                    <option value="enroll-course" <?php echo $box_state === 'enroll-course' ? 'selected' : ''; ?>>Enroll in the Live Course</option>
+                                    <option value="buy-course" <?php echo $box_state === 'buy-course' ? 'selected' : ''; ?>>Buy This Course</option>
+                                    <option value="waitlist" <?php echo $box_state === 'waitlist' ? 'selected' : ''; ?>>Waitlist</option>
+                                    <option value="soldout" <?php echo $box_state === 'soldout' ? 'selected' : ''; ?>>Sold Out</option>
+                                </select>
+                            </td>
+                            <td>
+                                <?php if ($is_group_course) : ?>
+                                    <input type="number" class="webinar-stock" data-course-id="<?php echo esc_attr($course_id); ?>" value="<?php echo esc_attr($webinar_stock); ?>" min="0">
+                                <?php else : ?>
+                                    -
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if ($is_group_course) : ?>
+                                    <div class="date-list" data-course-id="<?php echo esc_attr($course_id); ?>">
+                                        <?php foreach ($dates as $index => $date) : ?>
+                                            <div>
+                                                <input type="text" class="course-date" value="<?php echo esc_attr($date['date']); ?>" data-index="<?php echo esc_attr($index); ?>" placeholder="Enter date (e.g., 2025-08-01)">
+                                                <button class="remove-date" data-index="<?php echo esc_attr($index); ?>">Remove</button>
+                                            </div>
+                                        <?php endforeach; ?>
+                                        <button class="add-date">Add Date</button>
+                                    </div>
+                                <?php else : ?>
+                                    -
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <button class="button save-course-settings" data-course-id="<?php echo esc_attr($course_id); ?>">Guardar</button>
+                                <button class="button delete-course" data-course-id="<?php echo esc_attr($course_id); ?>">Eliminar</button>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        <?php endif; ?>
+
+        <!-- Modal for Adding Course -->
+        <div id="add-course-modal" class="modal" style="display:none;">
+            <div class="modal-content">
+                <span class="modal-close">×</span>
+                <h2>Añadir Curso</h2>
+                <input type="hidden" id="group-id">
+                <label>Título del Curso (incluir sufijo, p.ej., VOD, G1):</label>
+                <input type="text" id="course-title" placeholder="e.g., How to do AI - VOD">
+                <label>Instructores:</label>
+                <select id="course-instructors" multiple>
+                    <?php
+                    $all_instructors = get_posts(['post_type' => 'instructor', 'posts_per_page' => -1]);
+                    foreach ($all_instructors as $instructor) {
+                        echo '<option value="' . esc_attr($instructor->ID) . '">' . esc_html($instructor->post_title) . '</option>';
+                    }
+                    ?>
+                </select>
+                <button class="button button-primary" id="save-new-course">Crear Curso</button>
             </div>
         </div>
-    </div>
 
-    <style>
-        .box-edit-modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            overflow: auto;
-            background-color: rgba(0,0,0,0.4);
-        }
-        .box-edit-content {
-            background-color: #fff;
-            margin: 15% auto;
-            padding: 20px;
-            border: 1px solid #888;
-            width: 80%;
-            max-width: 500px;
-            border-radius: 5px;
-            position: relative;
-        }
-        .box-edit-close {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-        .box-edit-close:hover,
-        .box-edit-close:focus {
-            color: black;
-            text-decoration: none;
-        }
-        .box-state-select {
-            width: 200px;
-            padding: 5px;
-            font-size: 14px;
-        }
-    </style>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const modal = document.getElementById('box-edit-modal');
-            const span = document.getElementsByClassName('box-edit-close')[0];
-            const saveButton = document.getElementById('save-box-settings');
-            const courseIdInput = document.getElementById('current-course-id');
-            const saveAllButton = document.getElementById('save-all-box-settings');
-
-            document.querySelectorAll('.box-state-select').forEach(select => {
-                select.addEventListener('change', function() {
-                    const courseId = this.getAttribute('data-course-id');
-                    courseIdInput.value = courseId;
-                    const state = this.value;
-                    fetch(ajaxurl + '?action=get_course_box_settings&course_id=' + courseId)
-                        .then(response => response.json())
-                        .then(data => {
-                            document.getElementById('show-buy-course').checked = state === 'buy-course';
-                            document.getElementById('show-enroll-course').checked = state === 'enroll-course';
-                            document.getElementById('show-waitlist').checked = state === 'waitlist';
-                            document.getElementById('show-soldout').checked = state === 'soldout';
-                            modal.style.display = 'block';
-                        });
-                });
-            });
-
-            span.onclick = function() {
-                modal.style.display = 'none';
-            };
-
-            window.onclick = function(event) {
-                if (event.target == modal) {
-                    modal.style.display = 'none';
-                }
-            };
-
-            saveButton.onclick = function() {
-                const courseId = courseIdInput.value;
-                const showBuyCourse = document.getElementById('show-buy-course').checked ? '1' : '0';
-                const showEnrollCourse = document.getElementById('show-enroll-course').checked ? '1' : '0';
-                const showWaitlist = document.getElementById('show-waitlist').checked ? '1' : '0';
-                const showSoldout = document.getElementById('show-soldout').checked ? '1' : '0';
-
-                fetch(ajaxurl + '?action=save_course_box_settings', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: 'course_id=' + courseId + '&show_buy_course=' + showBuyCourse + '&show_enroll_course=' + showEnrollCourse + '&show_waitlist=' + showWaitlist + '&show_soldout=' + showSoldout + '&nonce=' + '<?php echo wp_create_nonce('course_box_nonce'); ?>'
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        modal.style.display = 'none';
-                        alert('Settings saved successfully!');
-                        location.reload();
-                    } else {
-                        alert('Error saving settings: ' + data.data);
+        <!-- Modal for Editing Group Settings -->
+        <div id="edit-group-modal" class="modal" style="display:none;">
+            <div class="modal-content">
+                <span class="modal-close">×</span>
+                <h2>Editar Configuración del Grupo</h2>
+                <input type="hidden" id="edit-group-id">
+                <label>Página de Venta:</label>
+                <select id="selling-page">
+                    <option value="0">Ninguna</option>
+                    <?php
+                    $selling_pages = get_posts(['post_type' => 'selling_page', 'posts_per_page' => -1]);
+                    foreach ($selling_pages as $page) {
+                        echo '<option value="' . esc_attr($page->ID) . '">' . esc_html($page->post_title) . '</option>';
                     }
-                });
-            };
+                    ?>
+                </select>
+                <button class="button button-primary" id="save-group-settings">Guardar</button>
+            </div>
+        </div>
 
-            saveAllButton.onclick = function() {
-                const updates = [];
-                document.querySelectorAll('.box-state-select').forEach(select => {
-                    const courseId = select.getAttribute('data-course-id');
-                    const state = select.value;
-                    updates.push({
-                        course_id: courseId,
-                        show_buy_course: state === 'buy-course' ? '1' : '0',
-                        show_enroll_course: state === 'enroll-course' ? '1' : '0',
-                        show_waitlist: state === 'waitlist' ? '1' : '0',
-                        show_soldout: state === 'soldout' ? '1' : '0'
+        <style>
+            .modal {
+                display: none;
+                position: fixed;
+                z-index: 1000;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0,0,0,0.4);
+            }
+            .modal-content {
+                background-color: #fff;
+                margin: 15% auto;
+                padding: 20px;
+                border: 1px solid #888;
+                width: 80%;
+                max-width: 500px;
+                border-radius: 5px;
+            }
+            .modal-close {
+                color: #aaa;
+                float: right;
+                font-size: 28px;
+                cursor: pointer;
+            }
+            .modal-close:hover {
+                color: black;
+            }
+            .box-state-select, .instructor-select {
+                width: 200px;
+                padding: 5px;
+                font-size: 14px;
+            }
+            .webinar-stock {
+                width: 100px;
+                padding: 5px;
+                font-size: 14px;
+            }
+            .date-list {
+                display: flex;
+                flex-direction: column;
+                gap: 5px;
+            }
+            .course-date {
+                padding: 5px;
+                font-size: 14px;
+                width: 150px;
+            }
+            .remove-date, .add-date {
+                padding: 5px 10px;
+                font-size: 12px;
+                border: none;
+                border-radius: 3px;
+                cursor: pointer;
+            }
+            .remove-date {
+                background: #ff4444;
+                color: white;
+            }
+            .remove-date:hover {
+                background: #cc0000;
+            }
+            .add-date {
+                background: #4CAF50;
+                color: white;
+            }
+            .add-date:hover {
+                background: #45a049;
+            }
+            #group-search {
+                margin-bottom: 10px;
+                padding: 5px;
+                width: 300px;
+            }
+        </style>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const addCourseModal = document.getElementById('add-course-modal');
+                const editGroupModal = document.getElementById('edit-group-modal');
+                const closeButtons = document.getElementsByClassName('modal-close');
+
+                // Open Add Course Modal
+                document.querySelectorAll('.add-course').forEach(button => {
+                    button.addEventListener('click', function() {
+                        document.getElementById('group-id').value = this.getAttribute('data-group-id');
+                        addCourseModal.style.display = 'block';
                     });
                 });
 
-                fetch(ajaxurl + '?action=save_all_course_box_settings', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: 'updates=' + encodeURIComponent(JSON.stringify(updates)) + '&nonce=' + '<?php echo wp_create_nonce('course_box_nonce'); ?>'
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert('All settings saved successfully!');
-                        location.reload();
-                    } else {
-                        alert('Error saving settings: ' + data.data);
+                // Open Edit Group Modal
+                document.querySelectorAll('.edit-group-settings').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const groupId = this.getAttribute('data-group-id');
+                        document.getElementById('edit-group-id').value = groupId;
+                        fetch(ajaxurl + '?action=get_group_settings&group_id=' + groupId)
+                            .then(response => response.json())
+                            .then(data => {
+                                document.getElementById('selling-page').value = data.selling_page_id || '0';
+                                editGroupModal.style.display = 'block';
+                            });
+                    });
+                });
+
+                // Close Modals
+                Array.from(closeButtons).forEach(button => {
+                    button.addEventListener('click', function() {
+                        addCourseModal.style.display = 'none';
+                        editGroupModal.style.display = 'none';
+                    });
+                });
+                window.addEventListener('click', function(event) {
+                    if (event.target === addCourseModal || event.target === editGroupModal) {
+                        addCourseModal.style.display = 'none';
+                        editGroupModal.style.display = 'none';
                     }
                 });
-            };
-        });
-    </script>
+
+                // Save New Course
+                document.getElementById('save-new-course').addEventListener('click', function() {
+                    const groupId = document.getElementById('group-id').value;
+                    const title = document.getElementById('course-title').value;
+                    const instructors = Array.from(document.getElementById('course-instructors').selectedOptions).map(option => option.value);
+                    fetch(ajaxurl + '?action=create_new_course', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                        body: 'group_id=' + groupId + '&title=' + encodeURIComponent(title) + '&instructors=' + encodeURIComponent(JSON.stringify(instructors)) + '&nonce=' + '<?php echo wp_create_nonce('course_box_nonce'); ?>'
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('Curso creado exitosamente!');
+                            location.reload();
+                        } else {
+                            alert('Error: ' + data.data);
+                        }
+                    });
+                });
+
+                // Save Course Settings
+                document.querySelectorAll('.save-course-settings').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const courseId = this.getAttribute('data-course-id');
+                        const boxState = document.querySelector(`.box-state-select[data-course-id="${courseId}"]`).value;
+                        const instructors = Array.from(document.querySelector(`.instructor-select[data-course-id="${courseId}"]`).selectedOptions).map(option => option.value);
+                        const stock = document.querySelector(`.webinar-stock[data-course-id="${courseId}"]`)?.value || '';
+                        const dates = Array.from(document.querySelectorAll(`.date-list[data-course-id="${courseId}"] .course-date`)).map(input => input.value).filter(date => date.trim() !== '');
+                        fetch(ajaxurl + '?action=save_course_settings', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                            body: 'course_id=' + courseId + '&box_state=' + boxState + '&instructors=' + encodeURIComponent(JSON.stringify(instructors)) + '&stock=' + stock + '&dates=' + encodeURIComponent(JSON.stringify(dates)) + '&nonce=' + '<?php echo wp_create_nonce('course_box_nonce'); ?>'
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                alert('Configuración guardada!');
+                                location.reload();
+                            } else {
+                                alert('Error: ' + data.data);
+                            }
+                        });
+                    });
+                });
+
+                // Delete Course
+                document.querySelectorAll('.delete-course').forEach(button => {
+                    button.addEventListener('click', function() {
+                        if (!confirm('¿Seguro que quieres eliminar este curso?')) return;
+                        const courseId = this.getAttribute('data-course-id');
+                        fetch(ajaxurl + '?action=delete_course', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                            body: 'course_id=' + courseId + '&nonce=' + '<?php echo wp_create_nonce('course_box_nonce'); ?>'
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                alert('Curso eliminado!');
+                                location.reload();
+                            } else {
+                                alert('Error: ' + data.data);
+                            }
+                        });
+                    });
+                });
+
+                // Add/Remove Dates
+                document.querySelectorAll('.date-list').forEach(container => {
+                    const courseId = container.getAttribute('data-course-id');
+                    const addDateButton = container.querySelector('.add-date');
+                    addDateButton.addEventListener('click', function() {
+                        const dateList = container;
+                        const index = dateList.querySelectorAll('.course-date').length;
+                        const wrapper = document.createElement('div');
+                        const newDateInput = document.createElement('input');
+                        newDateInput.type = 'text';
+                        newDateInput.className = 'course-date';
+                        newDateInput.setAttribute('data-index', index);
+                        newDateInput.placeholder = 'Enter date (e.g., 2025-08-01)';
+                        const removeButton = document.createElement('button');
+                        removeButton.className = 'remove-date';
+                        removeButton.setAttribute('data-index', index);
+                        removeButton.textContent = 'Remove';
+                        removeButton.addEventListener('click', function() {
+                            wrapper.remove();
+                        });
+                        wrapper.appendChild(newDateInput);
+                        wrapper.appendChild(removeButton);
+                        dateList.insertBefore(wrapper, addDateButton);
+                    });
+
+                    container.querySelectorAll('.remove-date').forEach(button => {
+                        button.addEventListener('click', function() {
+                            button.parentElement.remove();
+                        });
+                    });
+                });
+
+                // Save Group Settings
+                document.getElementById('save-group-settings').addEventListener('click', function() {
+                    const groupId = document.getElementById('edit-group-id').value;
+                    const sellingPageId = document.getElementById('selling-page').value;
+                    fetch(ajaxurl + '?action=save_group_settings', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                        body: 'group_id=' + groupId + '&selling_page_id=' + sellingPageId + '&nonce=' + '<?php echo wp_create_nonce('course_box_nonce'); ?>'
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('Configuración del grupo guardada!');
+                            location.reload();
+                        } else {
+                            alert('Error: ' + data.data);
+                        }
+                    });
+                });
+
+                // Search Groups
+                document.getElementById('group-search').addEventListener('input', function() {
+                    const search = this.value.toLowerCase();
+                    document.querySelectorAll('.wp-list-table tbody tr').forEach(row => {
+                        const groupName = row.cells[0].textContent.toLowerCase();
+                        row.style.display = groupName.includes(search) ? '' : 'none';
+                    });
+                });
+            });
+        </script>
+    </div>
     <?php
 }
 
-// AJAX handlers
-add_action('wp_ajax_get_course_box_settings', 'get_course_box_settings');
-function get_course_box_settings() {
+// AJAX Handlers
+add_action('wp_ajax_get_group_settings', 'get_group_settings');
+function get_group_settings() {
     check_ajax_referer('course_box_nonce', 'nonce');
-    $course_id = intval($_GET['course_id']);
+    $group_id = intval($_GET['group_id']);
+    $selling_page = get_posts([
+        'post_type' => 'selling_page',
+        'posts_per_page' => 1,
+        'tax_query' => [
+            [
+                'taxonomy' => 'course_group',
+                'field' => 'term_id',
+                'terms' => $group_id,
+            ],
+        ],
+    ]);
     wp_send_json_success([
-        'show_buy_course' => get_option('course_box_show_buy_' . $course_id, '0'),
-        'show_enroll_course' => get_option('course_box_show_enroll_' . $course_id, '0'),
-        'show_waitlist' => get_option('course_box_show_waitlist_' . $course_id, '0'),
-        'show_soldout' => get_option('course_box_show_soldout_' . $course_id, '0'),
+        'selling_page_id' => !empty($selling_page) ? $selling_page[0]->ID : 0,
     ]);
 }
 
-add_action('wp_ajax_save_course_box_settings', 'save_course_box_settings');
-function save_course_box_settings() {
+add_action('wp_ajax_create_new_course', 'create_new_course');
+function create_new_course() {
+    check_ajax_referer('course_box_nonce', 'nonce');
+    $group_id = intval($_POST['group_id']);
+   3
+    $title = sanitize_text_field($_POST['title']);
+    $instructors = json_decode(stripslashes($_POST['instructors']), true);
+
+    $course_id = wp_insert_post([
+        'post_title' => $title,
+        'post_type' => 'stm-courses',
+        'post_status' => 'publish',
+    ]);
+
+    if ($course_id) {
+        wp_set_post_terms($course_id, [$group_id], 'course_group');
+        update_post_meta($course_id, 'course_instructors', $instructors);
+
+        // Create WooCommerce product
+        $product = new WC_Product_Simple();
+        $product->set_name($title);
+        $product->set_status('publish');
+        $product->set_virtual(true);
+        $product->set_price(get_field('course_price', $course_id) ?: 749.99);
+        $product_id = $product->save();
+        wp_set_post_terms($product_id, [$group_id], 'course_group');
+        update_post_meta($course_id, 'linked_product_id', $product_id);
+
+        // Update instructor meta
+        foreach ($instructors as $instructor_id) {
+            $courses = get_post_meta($instructor_id, 'instructor_courses', true) ?: [];
+            if (!in_array($course_id, $courses)) {
+                $courses[] = $course_id;
+                update_post_meta($instructor_id, 'instructor_courses', $courses);
+            }
+        }
+
+        // Ensure selling page exists
+        $selling_page = get_posts([
+            'post_type' => 'selling_page',
+            'posts_per_page' => 1,
+            'tax_query' => [
+                [
+                    'taxonomy' => 'course_group',
+                    'field' => 'term_id',
+                    'terms' => $group_id,
+                ],
+            ],
+        ]);
+        if (empty($selling_page)) {
+            $selling_page_id = wp_insert_post([
+                'post_title' => preg_replace('/ - (VOD|G\d+)$/', '', $title),
+                'post_type' => 'selling_page',
+                'post_status' => 'publish',
+            ]);
+            wp_set_post_terms($selling_page_id, [$group_id], 'course_group');
+        }
+
+        wp_send_json_success();
+    } else {
+        wp_send_json_error('No se pudo crear el curso.');
+    }
+}
+
+add_action('wp_ajax_save_course_settings', 'save_course_settings');
+function save_course_settings() {
     check_ajax_referer('course_box_nonce', 'nonce');
     $course_id = intval($_POST['course_id']);
-    $show_buy_course = sanitize_text_field($_POST['show_buy_course']);
-    $show_enroll_course = sanitize_text_field($_POST['show_enroll_course']);
-    $show_waitlist = sanitize_text_field($_POST['show_waitlist']);
-    $show_soldout = sanitize_text_field($_POST['show_soldout']);
+    $box_state = sanitize_text_field($_POST['box_state']);
+    $instructors = json_decode(stripslashes($_POST['instructors']), true);
+    $stock = sanitize_text_field($_POST['stock']);
+    $dates = json_decode(stripslashes($_POST['dates']), true);
 
-    update_option('course_box_show_buy_' . $course_id, $show_buy_course);
-    update_option('course_box_show_enroll_' . $course_id, $show_enroll_course);
-    update_option('course_box_show_waitlist_' . $course_id, $show_waitlist);
-    update_option('course_box_show_soldout_' . $course_id, $show_soldout);
+    update_post_meta($course_id, 'box_state', $box_state);
+    update_post_meta($course_id, 'course_instructors', $instructors);
+    $product_id = get_post_meta($course_id, 'linked_product_id', true);
+    if ($product_id && $stock !== '') {
+        update_post_meta($product_id, '_stock', $stock);
+        update_post_meta($product_id, '_manage_stock', 'yes');
+    }
+    if ($dates) {
+        update_field('course_dates', array_map(function($date) { return ['date' => $date]; }, $dates), $course_id);
+    } else {
+        delete_field('course_dates', $course_id);
+    }
+
+    // Update instructor meta
+    foreach ($instructors as $instructor_id) {
+        $courses = get_post_meta($instructor_id, 'instructor_courses', true) ?: [];
+        if (!in_array($course_id, $courses)) {
+            $courses[] = $course_id;
+            update_post_meta($instructor_id, 'instructor_courses', $courses);
+        }
+    }
 
     wp_send_json_success();
 }
 
-add_action('wp_ajax_save_all_course_box_settings', 'save_all_course_box_settings');
-function save_all_course_box_settings() {
+add_action('wp_ajax_delete_course', 'delete_course');
+function delete_course() {
     check_ajax_referer('course_box_nonce', 'nonce');
-    $updates = json_decode(stripslashes($_POST['updates']), true);
-    foreach ($updates as $update) {
-        $course_id = intval($update['course_id']);
-        update_option('course_box_show_buy_' . $course_id, $update['show_buy_course']);
-        update_option('course_box_show_enroll_' . $course_id, $update['show_enroll_course']);
-        update_option('course_box_show_waitlist_' . $course_id, $update['show_waitlist']);
-        update_option('course_box_show_soldout_' . $course_id, $update['show_soldout']);
+    $course_id = intval($_POST['course_id']);
+    $product_id = get_post_meta($course_id, 'linked_product_id', true);
+    if ($product_id) {
+        wp_delete_post($product_id, true);
+    }
+    wp_delete_post($course_id, true);
+    wp_send_json_success();
+}
+
+add_action('wp_ajax_save_group_settings', 'save_group_settings');
+function save_group_settings() {
+    check_ajax_referer('course_box_nonce', 'nonce');
+    $group_id = intval($_POST['group_id']);
+    $selling_page_id = intval($_POST['selling_page_id']);
+    $existing_page = get_posts([
+        'post_type' => 'selling_page',
+        'posts_per_page' => 1,
+        'tax_query' => [
+            [
+                'taxonomy' => 'course_group',
+                'field' => 'term_id',
+                'terms' => $group_id,
+            ],
+        ],
+    ]);
+    if ($existing_page && $existing_page[0]->ID != $selling_page_id) {
+        wp_delete_post($existing_page[0]->ID, true);
+    }
+    if ($selling_page_id) {
+        wp_set_post_terms($selling_page_id, [$group_id], 'course_group');
     }
     wp_send_json_success();
 }
@@ -283,151 +706,149 @@ function save_all_course_box_settings() {
 function course_box_manager_shortcode() {
     global $post;
     $post_id = $post ? $post->ID : 0;
+    $terms = wp_get_post_terms($post_id, 'course_group');
+    $group_id = !empty($terms) ? $terms[0]->term_id : 0;
+    if (!$group_id) return '';
 
-    // Fetch ACF fields
-    $course_product_link = get_field('field_6821879221940', $post_id);
-    $enroll_product_link = get_field('field_6821879e21941', $post_id);
-    $course_price = get_field('field_681ccc6eb123a', $post_id) ?: '749.99';
-    $available_dates = [];
-    if (have_rows('field_6826dd2179231', $post_id)) {
-        while (have_rows('field_6826dd2179231', $post_id)) {
-            the_row();
-            $date_text = get_sub_field('field_6826dfe2d7837');
-            if (!empty($date_text)) {
-                $available_dates[] = sanitize_text_field($date_text);
-            }
-        }
-    }
-
-    // Get visibility settings
-    $show_buy_course = get_option('course_box_show_buy_' . $post_id, '0');
-    $show_enroll_course = get_option('course_box_show_enroll_' . $post_id, '0');
-    $show_waitlist = get_option('course_box_show_waitlist_' . $post_id, '0');
-    $show_soldout = get_option('course_box_show_soldout_' . $post_id, '0');
-
-    $course_product_id = $course_product_link ? intval(parse_url($course_product_link, PHP_URL_QUERY)) : 0;
-    $enroll_product_id = $enroll_product_link ? intval(parse_url($enroll_product_link, PHP_URL_QUERY)) : 0;
-    $is_out_of_stock = $course_product_id && function_exists('wc_get_product') && !wc_get_product($course_product_id)->is_in_stock();
-    $launch_date = $course_product_id ? apply_filters('wc_launch_date_get', '', $course_product_id) : '';
-    $show_countdown = !empty($launch_date) && strtotime($launch_date) > current_time('timestamp');
+    $courses = get_posts([
+        'post_type' => 'stm-courses',
+        'posts_per_page' => -1,
+        'tax_query' => [
+            [
+                'taxonomy' => 'course_group',
+                'field' => 'term_id',
+                'terms' => $group_id,
+            ],
+        ],
+    ]);
 
     ob_start();
     ?>
     <div class="selectable-box-container">
         <div class="box-container">
-            <?php if ($show_soldout && $is_out_of_stock) : ?>
-                <div class="box soldout-course">
-                    <div class="soldout-header"><span>THE COURSE IS SOLD OUT</span></div>
-                    <h3>Join Waitlist for Free</h3>
-                    <p class="description">Gain access to live streams, free credits for Arcana, and more.</p>
-                    [contact-form-7 id="c2b4e27" title="Course Sold Out"]
-                    <p class="terms">By signing up, you agree to the Terms & Conditions.</p>
-                </div>
-            <?php elseif ($show_waitlist && empty($available_dates) && !$is_out_of_stock) : ?>
-                <div class="box course-launch">
-                    <h3>Join Waitlist for Free</h3>
-                    <p class="description">Be the first to know when the course launches. No Spam. We Promise!</p>
-                    [contact-form-7 id="255b390" title="Course Launch"]
-                    <p class="terms">By signing up, you agree to the Terms & Conditions.</p>
-                </div>
-            <?php elseif ($show_countdown && $launch_date) : ?>
-                <div class="box course-launch">
-                    <div class="countdown">
-                        <span>COURSE LAUNCH IN:</span>
-                        <div class="countdown-timer" id="countdown-timer-<?php echo esc_attr($post_id); ?>" data-launch-date="<?php echo esc_attr($launch_date); ?>">
-                            <?php
-                            $time_diff = strtotime($launch_date) - current_time('timestamp');
-                            if ($time_diff > 0) {
-                                $days = floor($time_diff / (60 * 60 * 24));
-                                $hours = floor(($time_diff % (60 * 60 * 24)) / (60 * 60));
-                                $minutes = floor(($time_diff % (60 * 60)) / 60);
-                                $seconds = $time_diff % 60;
-                                ?>
-                                <div class="time-unit" data-unit="days">
-                                    <span class="time-value"><?php echo esc_html(sprintf('%02d', $days)); ?></span>
-                                    <span class="time-label">days</span>
-                                </div>
-                                <div class="time-unit" data-unit="hours">
-                                    <span class="time-value"><?php echo esc_html(sprintf('%02d', $hours)); ?></span>
-                                    <span class="time-label">hrs</span>
-                                </div>
-                                <div class="time-unit" data-unit="minutes">
-                                    <span class="time-value"><?php echo esc_html(sprintf('%02d', $minutes)); ?></span>
-                                    <span class="time-label">min</span>
-                                </div>
-                                <div class="time-unit" data-unit="seconds">
-                                    <span class="time-value"><?php echo esc_html(sprintf('%02d', $seconds)); ?></span>
-                                    <span class="time-label">sec</span>
-                                </div>
+            <?php foreach ($courses as $course) :
+                $course_id = $course->ID;
+                $box_state = get_post_meta($course_id, 'box_state', true) ?: 'enroll-course';
+                $course_product_id = get_post_meta($course_id, 'linked_product_id', true);
+                $course_price = get_field('course_price', $course_id) ?: 749.99;
+                $enroll_price = get_field('enroll_price', $course_id) ?: 1249.99;
+                $available_dates = get_field('course_dates', $course_id) ?: [];
+                $available_dates = array_column($available_dates, 'date');
+                $is_out_of_stock = $course_product_id && function_exists('wc_get_product') && !wc_get_product($course_product_id)->is_in_stock();
+                $launch_date = $course_product_id ? apply_filters('wc_launch_date_get', '', $course_product_id) : '';
+                $show_countdown = !empty($launch_date) && strtotime($launch_date) > current_time('timestamp');
+                $is_group_course = preg_match('/ - G\d+$/', get_the_title($course_id));
+            ?>
+                <?php if ($box_state === 'soldout' && $is_out_of_stock) : ?>
+                    <div class="box soldout-course">
+                        <div class="soldout-header"><span>THE COURSE IS SOLD OUT</span></div>
+                        <h3>Join Waitlist for Free</h3>
+                        <p class="description">Gain access to live streams, free credits for Arcana, and more.</p>
+                        [contact-form-7 id="c2b4e27" title="Course Sold Out"]
+                        <p class="terms">By signing up, you agree to the Terms & Conditions.</p>
+                    </div>
+                <?php elseif ($box_state === 'waitlist' && empty($available_dates) && !$is_out_of_stock) : ?>
+                    <div class="box course-launch">
+                        <h3>Join Waitlist for Free</h3>
+                        <p class="description">Be the first to know when the course launches. No Spam. We Promise!</p>
+                        [contact-form-7 id="255b390" title="Course Launch"]
+                        <p class="terms">By signing up, you agree to the Terms & Conditions.</p>
+                    </div>
+                <?php elseif ($show_countdown && $launch_date) : ?>
+                    <div class="box course-launch">
+                        <div class="countdown">
+                            <span>COURSE LAUNCH IN:</span>
+                            <div class="countdown-timer" id="countdown-timer-<?php echo esc_attr($course_id); ?>" data-launch-date="<?php echo esc_attr($launch_date); ?>">
                                 <?php
-                            } else {
-                                echo '<span class="launch-soon">Launched!</span>';
-                            }
-                            ?>
-                        </div>
-                    </div>
-                    <h3>Join Waitlist for Free</h3>
-                    <p class="description">Gain access to live streams, free credits for Arcana, and more.</p>
-                    [contact-form-7 id="255b390" title="Course Launch"]
-                    <p class="terms">By signing up, you agree to the Terms & Conditions.</p>
-                </div>
-            <?php endif; ?>
-            <?php if ($show_buy_course && !$is_out_of_stock && !$show_countdown) : ?>
-                <div class="box buy-course<?php echo !$show_enroll_course ? ' selected' : ''; ?>" onclick="selectBox(this, 'box1', <?php echo esc_attr($post_id); ?>)">
-                    <div class="statebox">
-                        <div class="circlecontainer" style="display: <?php echo !$show_enroll_course ? 'flex' : 'none'; ?>;">
-                            <div class="outer-circle">
-                                <div class="middle-circle">
-                                    <div class="inner-circle"></div>
-                                </div>
+                                $time_diff = strtotime($launch_date) - current_time('timestamp');
+                                if ($time_diff > 0) {
+                                    $days = floor($time_diff / (60 * 60 * 24));
+                                    $hours = floor(($time_diff % (60 * 60 * 24)) / (60 * 60));
+                                    $minutes = floor(($time_diff % (60 * 60)) / 60);
+                                    $seconds = $time_diff % 60;
+                                    ?>
+                                    <div class="time-unit" data-unit="days">
+                                        <span class="time-value"><?php echo esc_html(sprintf('%02d', $days)); ?></span>
+                                        <span class="time-label">days</span>
+                                    </div>
+                                    <div class="time-unit" data-unit="hours">
+                                        <span class="time-value"><?php echo esc_html(sprintf('%02d', $hours)); ?></span>
+                                        <span class="time-label">hrs</span>
+                                    </div>
+                                    <div class="time-unit" data-unit="minutes">
+                                        <span class="time-value"><?php echo esc_html(sprintf('%02d', $minutes)); ?></span>
+                                        <span class="time-label">min</span>
+                                    </div>
+                                    <div class="time-unit" data-unit="seconds">
+                                        <span class="time-value"><?php echo esc_html(sprintf('%02d', $seconds)); ?></span>
+                                        <span class="time-label">sec</span>
+                                    </div>
+                                <?php } else { ?>
+                                    <span class="launch-soon">Launched!</span>
+                                <?php } ?>
                             </div>
                         </div>
-                        <div class="circle-container" style="display: <?php echo !$show_enroll_course ? 'none' : 'flex'; ?>;">
-                            <div class="circle"></div>
-                        </div>
-                        <div>
-                            <h3>Buy This Course</h3>
-                            <p class="price">$<?php echo esc_html(number_format($course_price, 2)); ?> USD</p>
-                            <p class="description">Pay once, own the course forever.</p>
-                        </div>
+                        <h3>Join Waitlist for Free</h3>
+                        <p class="description">Gain access to live streams, free credits for Arcana, and more.</p>
+                        [contact-form-7 id="255b390" title="Course Launch"]
+                        <p class="terms">By signing up, you agree to the Terms & Conditions.</p>
                     </div>
-                    <button class="add-to-cart-button" data-product-id="<?php echo esc_attr($course_product_id); ?>">Buy Course</button>
-                </div>
-            <?php endif; ?>
-            <?php if ($show_enroll_course && !$is_out_of_stock && !$show_countdown && !empty($available_dates)) : ?>
-                <div class="box enroll-course<?php echo $show_buy_course ? '' : ' selected'; ?>" onclick="selectBox(this, 'box2', <?php echo esc_attr($post_id); ?>)">
-                    <div class="statebox">
-                        <div class="circlecontainer" style="display: <?php echo $show_buy_course ? 'none' : 'flex'; ?>;">
-                            <div class="outer-circle">
-                                <div class="middle-circle">
-                                    <div class="inner-circle"></div>
+                <?php elseif ($box_state === 'buy-course' && !$is_out_of_stock && !$show_countdown) : ?>
+                    <div class="box buy-course<?php echo $is_group_course ? '' : ' selected'; ?>" onclick="selectBox(this, 'box1', <?php echo esc_attr($course_id); ?>)">
+                        <div class="statebox">
+                            <div class="circlecontainer" style="display: <?php echo $is_group_course ? 'none' : 'flex'; ?>;">
+                                <div class="outer-circle">
+                                    <div class="middle-circle">
+                                        <div class="inner-circle"></div>
+                                    </div>
                                 </div>
                             </div>
+                            <div class="circle-container" style="display: <?php echo $is_group_course ? 'flex' : 'none'; ?>;">
+                                <div class="circle"></div>
+                            </div>
+                            <div>
+                                <h3>Buy This Course</h3>
+                                <p class="price">$<?php echo esc_html(number_format($course_price, 2)); ?> USD</p>
+                                <p class="description">Pay once, own the course forever.</p>
+                            </div>
                         </div>
-                        <div class="circle-container" style="display: <?php echo $show_buy_course ? 'flex' : 'none'; ?>;">
-                            <div class="circle"></div>
-                        </div>
-                        <div>
-                            <h3>Enroll in the Live Course</h3>
-                            <p>$1249.99 USD</p>
-                            <p class="description">Join weekly live sessions with feedback and expert mentorship. Pay Once.</p>
-                        </div>
+                        <button class="add-to-cart-button" data-product-id="<?php echo esc_attr($course_product_id); ?>">Buy Course</button>
                     </div>
-                    <hr class="divider">
-                    <div class="start-dates" style="display: <?php echo $show_buy_course ? 'none' : 'block'; ?>;">
-                        <p class="choose-label">Choose a starting date</p>
-                        <div class="date-options">
-                            <?php foreach ($available_dates as $date) {
-                                echo '<button class="date-btn" data-date="' . esc_attr($date) . '">' . esc_html($date) . '</button>';
-                            } ?>
+                <?php elseif ($box_state === 'enroll-course' && !$is_out_of_stock && !$show_countdown && !empty($available_dates) && $is_group_course) : ?>
+                    <div class="box enroll-course<?php echo !$is_group_course ? '' : ' selected'; ?>" onclick="selectBox(this, 'box2', <?php echo esc_attr($course_id); ?>)">
+                        <div class="statebox">
+                            <div class="circlecontainer" style="display: <?php echo !$is_group_course ? 'none' : 'flex'; ?>;">
+                                <div class="outer-circle">
+                                    <div class="middle-circle">
+                                        <div class="inner-circle"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="circle-container" style="display: <?php echo !$is_group_course ? 'flex' : 'none'; ?>;">
+                                <div class="circle"></div>
+                            </div>
+                            <div>
+                                <h3>Enroll in the Live Course</h3>
+                                <p>$<?php echo esc_html(number_format($enroll_price, 2)); ?> USD</p>
+                                <p class="description">Join weekly live sessions with feedback and expert mentorship.</p>
+                            </div>
                         </div>
+                        <hr class="divider">
+                        <div class="start-dates" style="display: <?php echo !$is_group_course ? 'none' : 'block'; ?>;">
+                            <p class="choose-label">Choose a starting date</p>
+                            <div class="date-options">
+                                <?php foreach ($available_dates as $date) : ?>
+                                    <button class="date-btn" data-date="<?php echo esc_attr($date); ?>"><?php echo esc_html($date); ?></button>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                        <button class="add-to-cart-button" data-product-id="<?php echo esc_attr($course_product_id); ?>">
+                            <span class="button-text">Enroll Now</span>
+                            <span class="loader" style="display: none;"></span>
+                        </button>
                     </div>
-                    <button class="add-to-cart-button" data-product-id="<?php echo esc_attr($enroll_product_id); ?>">
-                        <span class="button-text">Enroll Now</span>
-                        <span class="loader" style="display: none;"></span>
-                    </button>
-                </div>
-            <?php endif; ?>
+                <?php endif; ?>
+            <?php endforeach; ?>
         </div>
         <div class="text-outside-box">
             <p style="text-align: center; letter-spacing: 0.9px; margin-top: 30px; font-weight: 200; font-size: 12px;">
@@ -438,18 +859,14 @@ function course_box_manager_shortcode() {
     </div>
 
     <style>
-        .selectable-box-container { max-width: 350px; }
+        .selectable-box-container { max-width: 1200px; margin: 0 auto; }
         .box-container {
-            padding: 0;
-            max-width: 1200px;
-            margin: 0 auto;
             display: flex;
             flex-wrap: wrap;
             gap: 20px;
             justify-content: center;
         }
-        .box-container .box {
-            position: relative;
+        .box {
             max-width: 350px;
             width: 100%;
             padding: 15px;
@@ -459,21 +876,18 @@ function course_box_manager_shortcode() {
             color: white;
             cursor: pointer;
             transition: all 0.3s ease;
-            margin-bottom: 20px;
             box-sizing: border-box;
         }
-        .box-container .box.selected {
+        .box.selected {
             background: linear-gradient(180deg, rgba(242, 46, 190, 0.2), rgba(170, 0, 212, 0.2));
             border: none;
             padding: 16px 12px;
         }
-        .box-container .box:not(.selected) {
-            opacity: 0.7;
-        }
-        .box-container .box h3 { color: #fff; margin-left: 10px; margin-top: 0; font-size: 1.5em; }
-        .box-container .box .price { font-family: 'Poppins', sans-serif; font-weight: 500; font-size: 26px; line-height: 135%; letter-spacing: 0.48px; }
-        .box-container .box .description { font-size: 12px; color: rgba(255, 255, 255, 0.64); margin: 10px 0; }
-        .box-container .box button {
+        .box:not(.selected) { opacity: 0.7; }
+        .box h3 { color: #fff; margin-left: 10px; margin-top: 0; font-size: 1.5em; }
+        .box .price { font-family: 'Poppins', sans-serif; font-weight: 500; font-size: 26px; }
+        .box .description { font-size: 12px; color: rgba(255, 255, 255, 0.64); margin: 10px 0; }
+        .box button {
             width: 100%;
             padding: 5px 12px;
             background-color: rgba(255, 255, 255, 0.08);
@@ -483,35 +897,35 @@ function course_box_manager_shortcode() {
             font-size: 12px;
             cursor: pointer;
         }
-        .box-container .box button:hover { background-color: rgba(255, 255, 255, 0.2); }
-        .box-container .divider { border: none; border-top: 1px solid rgba(255, 255, 255, 0.2); margin: 20px 0; }
-        .box-container .soldout-course, .box-container .course-launch { background: #2a2a2a; text-align: center; }
-        .box-container .soldout-header { background: #ff3e3e; padding: 10px; border-radius: 10px; margin-bottom: 10px; }
-        .box-container .countdown { background: #800080; padding: 10px; border-radius: 10px; margin-bottom: 10px; display: flex; justify-content: center; gap: 15px; }
-        .box-container .countdown-timer { display: flex; gap: 15px; }
-        .box-container .time-unit { display: flex; flex-direction: column; align-items: center; }
-        .box-container .time-value { font-size: 1.5em; font-weight: bold; }
-        .box-container .time-label { font-size: 0.9em; color: rgba(255, 255, 255, 0.8); }
-        .box-container .terms { font-size: 0.7em; color: #aaa; }
-        .box-container .start-dates { display: none; margin-top: 15px; animation: fadeIn 0.4s ease; }
-        .box-container .box.selected .start-dates { display: block; }
-        .box-container .statebox { display: flex; }
-        .box-container .outer-circle { width: 16px; height: 16px; border-radius: 50%; background-color: #DE04A4; border: 1.45px solid #DE04A4; display: flex; align-items: center; justify-content: center; }
-        .box-container .middle-circle { width: 11.77px; height: 11.77px; border-radius: 50%; background-color: #050505; display: flex; align-items: center; justify-content: center; }
-        .box-container .inner-circle { width: 6.16px; height: 6.16px; border-radius: 50%; background-color: #DE04A4; }
-        .box-container .circlecontainer { margin: 6px 7px; }
-        .box-container .circle-container { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; }
-        .box-container .circle { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(155, 159, 170, 0.24); }
-        .box-container .box:not(.selected) .circlecontainer { display: none; }
-        .box-container .box:not(.selected) .circle-container { display: flex; }
-        .box-container .box.selected .circle-container { display: none; }
-        .box-container .box.selected .circlecontainer { display: flex; }
-        .box-container .choose-label { font-size: 0.95em; margin-bottom: 10px; color: #fff; }
-        .box-container .date-options { display: flex; flex-wrap: wrap; gap: 4px; }
-        .box-container .date-btn { width: 68px; padding: 5px 8px; border: none; border-radius: 25px; background-color: rgba(255, 255, 255, 0.08); color: white; cursor: pointer; }
-        .box-container .date-btn:hover, .box-container .date-btn.selected { background-color: #cc3071; }
+        .box button:hover { background-color: rgba(255, 255, 255, 0.2); }
+        .divider { border-top: 1px solid rgba(255, 255, 255, 0.2); margin: 20px 0; }
+        .soldout-course, .course-launch { background: #2a2a2a; text-align: center; }
+        .soldout-header { background: #ff3e3e; padding: 10px; border-radius: 10px; margin-bottom: 10px; }
+        .countdown { background: #800080; padding: 10px; border-radius: 10px; margin-bottom: 10px; display: flex; gap: 15px; justify-content: center; }
+        .countdown-timer { display: flex; gap: 15px; }
+        .time-unit { display: flex; flex-direction: column; align-items: center; }
+        .time-value { font-size: 1.5em; font-weight: bold; }
+        .time-label { font-size: 0.9em; color: rgba(255, 255, 255, 0.8); }
+        .terms { font-size: 0.7em; color: #aaa; }
+        .start-dates { display: none; margin-top: 15px; animation: fadeIn 0.4s ease; }
+        .box.selected .start-dates { display: block; }
+        .statebox { display: flex; }
+        .outer-circle { width: 16px; height: 16px; border-radius: 50%; background-color: #DE04A4; border: 1.45px solid #DE04A4; display: flex; align-items: center; justify-content: center; }
+        .middle-circle { width: 11.77px; height: 11.77px; border-radius: 50%; background-color: #050505; display: flex; align-items: center; justify-content: center; }
+        .inner-circle { width: 6.16px; height: 6.16px; border-radius: 50%; background-color: #DE04A4; }
+        .circlecontainer { margin: 6px 7px; }
+        .circle-container { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; }
+        .circle { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(155, 159, 170, 0.24); }
+        .box:not(.selected) .circlecontainer { display: none; }
+        .box:not(.selected) .circle-container { display: flex; }
+        .box.selected .circle-container { display: none; }
+        .box.selected .circlecontainer { display: flex; }
+        .choose-label { font-size: 0.95em; margin-bottom: 10px; color: #fff; }
+        .date-options { display: flex; flex-wrap: wrap; gap: 4px; }
+        .date-btn { width: 68px; padding: 5px 8px; border: none; border-radius: 25px; background-color: rgba(255, 255, 255, 0.08); color: white; cursor: pointer; }
+        .date-btn:hover, .date-btn.selected { background-color: #cc3071; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
-        @media (max-width: 767px) { .box-container .box { padding: 10px; } .box-container .box h3 { font-size: 1.2em; } }
+        @media (max-width: 767px) { .box { padding: 10px; } .box h3 { font-size: 1.2em; } }
         .add-to-cart-button {
             position: relative;
             display: flex;
@@ -519,8 +933,6 @@ function course_box_manager_shortcode() {
             justify-content: center;
             width: 100%;
             height: 40px;
-            min-height: 40px;
-            max-height: 40px;
             padding: 5px 12px;
             background-color: rgba(255, 255, 255, 0.08);
             border: none;
@@ -528,8 +940,6 @@ function course_box_manager_shortcode() {
             color: white;
             font-size: 12px;
             cursor: pointer;
-            box-sizing: border-box;
-            overflow: hidden;
         }
         .add-to-cart-button.loading .button-text { visibility: hidden; }
         .add-to-cart-button.loading .loader { display: inline-block; }
@@ -544,7 +954,6 @@ function course_box_manager_shortcode() {
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            margin: 0;
         }
         @keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
     </style>
@@ -554,11 +963,10 @@ function course_box_manager_shortcode() {
         let wasCartOpened = false;
         let wasCartManuallyClosed = false;
 
-        function selectBox(element, boxId, postId) {
+        function selectBox(element, boxId, courseId) {
             const boxes = element.closest('.box-container').querySelectorAll('.box');
             boxes.forEach(box => {
                 box.classList.remove('selected');
-                box.classList.add('no-button');
                 const circleContainer = box.querySelector('.circle-container');
                 const circlecontainer = box.querySelector('.circlecontainer');
                 const startDates = box.querySelector('.start-dates');
@@ -567,7 +975,6 @@ function course_box_manager_shortcode() {
                 if (startDates) startDates.style.display = 'none';
             });
             element.classList.add('selected');
-            element.classList.remove('no-button');
             const selectedCircleContainer = element.querySelector('.circle-container');
             const selectedCirclecontainer = element.querySelector('.circlecontainer');
             const selectedStartDates = element.querySelector('.start-dates');
@@ -578,9 +985,9 @@ function course_box_manager_shortcode() {
 
             if (element.classList.contains('enroll-course')) {
                 const firstDateBtn = selectedStartDates.querySelector('.date-btn');
-                if (firstDateBtn && !selectedDates[postId]) {
+                if (firstDateBtn && !selectedDates[courseId]) {
                     firstDateBtn.classList.add('selected');
-                    selectedDates[postId] = firstDateBtn.getAttribute('data-date') || firstDateBtn.textContent.trim();
+                    selectedDates[courseId] = firstDateBtn.getAttribute('data-date') || firstDateBtn.textContent.trim();
                 }
             }
         }
@@ -604,24 +1011,14 @@ function course_box_manager_shortcode() {
             });
         }
 
-        function getCartContents() {
-            return new Promise((resolve) => {
-                jQuery.get('<?php echo esc_url(admin_url('admin-ajax.php')); ?>?action=get_refreshed_fragments&_=' + new Date().getTime(), function(response) {
-                    resolve(response);
-                }).fail(function() {
-                    resolve(null);
-                });
-            });
-        }
-
         document.addEventListener('DOMContentLoaded', function() {
             document.querySelectorAll('.date-btn').forEach(btn => {
                 btn.addEventListener('click', function(e) {
                     e.stopPropagation();
-                    const postId = this.closest('.enroll-course').getAttribute('data-post-id');
+                    const courseId = this.closest('.enroll-course').getAttribute('data-course-id');
                     document.querySelectorAll('.date-btn').forEach(b => b.classList.remove('selected'));
                     this.classList.add('selected');
-                    selectedDates[postId] = this.getAttribute('data-date') || this.textContent.trim();
+                    selectedDates[courseId] = this.getAttribute('data-date') || this.textContent.trim();
                 });
             });
 
@@ -629,15 +1026,15 @@ function course_box_manager_shortcode() {
                 button.addEventListener('click', async function(e) {
                     e.preventDefault();
                     const productId = this.getAttribute('data-product-id');
-                    const postId = this.closest('.box').getAttribute('data-post-id');
+                    const courseId = this.closest('.box').getAttribute('data-course-id');
                     if (!productId || productId === '0') {
-                        alert('Error: Invalid product. Please try again.');
+                        alert('Error: Invalid product.');
                         return;
                     }
 
                     const isEnrollButton = this.closest('.enroll-course') !== null;
-                    if (isEnrollButton && !selectedDates[postId]) {
-                        alert('Please select a start date before adding to cart.');
+                    if (isEnrollButton && !selectedDates[courseId]) {
+                        alert('Please select a start date.');
                         return;
                     }
 
@@ -657,14 +1054,14 @@ function course_box_manager_shortcode() {
                                 } else {
                                     reject(new Error('Failed to add product to cart.'));
                                 }
-                            }).fail(function(jqXHR, textStatus, errorThrown) {
+                            }).fail(function(jqXHR, textStatus) {
                                 reject(new Error('Error: ' + textStatus));
                             });
                         });
                     };
 
                     try {
-                        const response = await addToCart(productId, isEnrollButton ? selectedDates[postId] : null);
+                        const response = await addToCart(productId, isEnrollButton ? selectedDates[courseId] : null);
                         jQuery(document.body).trigger('added_to_cart', [response.fragments, response.cart_hash]);
                         jQuery(document.body).trigger('wc_fragment_refresh');
                         setTimeout(() => {
@@ -673,10 +1070,10 @@ function course_box_manager_shortcode() {
                         }, 1000);
                         const cartOpened = await openFunnelKitCart();
                         if (!cartOpened && !wasCartOpened && !wasCartManuallyClosed) {
-                            alert('The cart may not have updated. Please check the cart manually.');
+                            alert('The cart may not have updated. Please check manually.');
                         }
                     } catch (error) {
-                        alert('Error adding product to cart: ' + error.message);
+                        alert('Error adding to cart: ' + error.message);
                     } finally {
                         this.classList.remove('loading');
                     }
@@ -685,13 +1082,6 @@ function course_box_manager_shortcode() {
 
             document.querySelectorAll('.fkcart-close, .fkcart-cart-close, .cart-close, .fkcart-close-btn, .fkcart-panel-close, [data-fkcart-close], .close-cart').forEach(close => {
                 close.addEventListener('click', () => wasCartManuallyClosed = true);
-            });
-
-            document.querySelectorAll('.fkcart-cart-toggle, .cart-toggle').forEach(toggle => {
-                toggle.addEventListener('click', () => {
-                    jQuery(document.body).trigger('wc_fragment_refresh');
-                    jQuery(document.body).trigger('wc_update_cart');
-                });
             });
 
             document.querySelectorAll('.countdown-timer').forEach(countdown => {
@@ -708,10 +1098,10 @@ function course_box_manager_shortcode() {
                         const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
                         const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
                         const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
-                        ['days', 'hours', 'minutes', 'seconds'].forEach(unit => {
-                            const element = countdown.querySelector(`.time-unit[data-unit="${unit}"] .time-value`);
-                            if (element) element.textContent = `${Math.max(0, Math.floor(eval(unit === 'days' ? days : unit === 'hours' ? hours : unit === 'minutes' ? minutes : seconds))).toString().padStart(2, '0')}`;
-                        });
+                        countdown.querySelector('.time-unit[data-unit="days"] .time-value').textContent = String(Math.max(0, days)).padStart(2, '0');
+                        countdown.querySelector('.time-unit[data-unit="hours"] .time-value').textContent = String(Math.max(0, hours)).padStart(2, '0');
+                        countdown.querySelector('.time-unit[data-unit="minutes"] .time-value').textContent = String(Math.max(0, minutes)).padStart(2, '0');
+                        countdown.querySelector('.time-unit[data-unit="seconds"] .time-value').textContent = String(Math.max(0, seconds)).padStart(2, '0');
                     };
                     updateCountdown();
                     setInterval(updateCountdown, 1000);
@@ -759,10 +1149,81 @@ add_action('woocommerce_email_order_meta', function ($order) {
 add_shortcode('course_box_manager', 'course_box_manager_shortcode');
 add_filter('the_content', 'inject_course_box_manager');
 function inject_course_box_manager($content) {
-    if (is_singular('course')) {
-        $post_id = get_the_ID();
+    if (is_singular('selling_page')) {
         $output = do_shortcode('[course_box_manager]');
         return $content . $output;
     }
     return $content;
 }
+
+// Sync course creation with product and selling page
+add_action('save_post_stm-courses', 'sync_course_to_product_and_page', 10, 3);
+function sync_course_to_product_and_page($post_id, $post, $update) {
+    if (wp_is_post_revision($post_id)) return;
+
+    $terms = wp_get_post_terms($post_id, 'course_group');
+    $group_id = !empty($terms) ? $terms[0]->termexpectations
+term_id : 0;
+
+    if ($group_id) {
+        // Create WooCommerce product if not exists
+        $product_id = get_post_meta($post_id, 'linked_product_id', true);
+        if (!$product_id) {
+            $product = new WC_Product_Simple();
+            $product->set_name($post->post_title);
+            $product->set_status('publish');
+            $product->set_virtual(true);
+            $product->set_price(get_field('course_price', $post_id) ?: 749.99);
+            $product_id = $product->save();
+            wp_set_post_terms($product_id, [$group_id], 'course_group');
+            update_post_meta($post_id, 'linked_product_id', $product_id);
+        }
+
+        // Ensure selling page exists
+        $selling_page = get_posts([
+            'post_type' => 'selling_page',
+            'posts_per_page' => 1,
+            'tax_query' => [
+                [
+                    'taxonomy' => 'course_group',
+                    'field' => 'term_id',
+                    'terms' => $group_id,
+                ],
+            ],
+        ]);
+        if (empty($selling_page)) {
+            $selling_page_id = wp_insert_post([
+                'post_title' => preg_replace('/ - (VOD|G\d+)$/', '', $post->post_title),
+                'post_type' => 'selling_page',
+                'post_status' => 'publish',
+            ]);
+            wp_set_post_terms($selling_page_id, [$group_id], 'course_group');
+        }
+    }
+}
+
+// Sync instructors bidirectionally
+add_action('acf/save_post', 'sync_course_instructors', 20);
+function sync_course_instructors($post_id) {
+    if (get_post_type($post_id) !== 'stm-courses') return;
+    $instructors = get_field('course_instructors', $post_id) ?: [];
+    update_post_meta($post_id, 'course_instructors', $instructors);
+
+    // Clear existing instructor courses
+    $all_instructors = get_posts(['post_type' => 'instructor', 'posts_per_page' => -1, 'fields' => 'ids']);
+    foreach ($all_instructors as $instructor_id) {
+        $courses = get_post_meta($instructor_id, 'instructor_courses', true) ?: [];
+        $courses = array_filter($courses, function($id) use ($post_id) { return $id != $post_id; });
+        update_post_meta($instructor_id, 'instructor_courses', $courses);
+    }
+
+    // Update instructor meta
+    foreach ($instructors as $instructor_id) {
+        $courses = get_post_meta($instructor_id, 'instructor_courses', true) ?: [];
+        if (!in_array($post_id, $courses)) {
+            $courses[] = $post_id;
+            update_post_meta($instructor_id, 'instructor_courses', $courses);
+        }
+    }
+}
+?>
