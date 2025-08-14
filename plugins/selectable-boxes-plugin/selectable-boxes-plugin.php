@@ -2,7 +2,7 @@
 /*
 Plugin Name: Selectable Boxes Plugin
 Description: A plugin to create selectable boxes for courses with live course date options from ACF, dynamic launch countdown, an admin dropdown in course post type to show/hide course box, and saves selected start date to order metadata, displayed in orders and emails. Supports multiple products in FunnelKit Cart.
-Version: 1.32
+Version: 1.33
 Author: Carlos Murillo
 */
 
@@ -22,7 +22,6 @@ function selectable_boxes_shortcode() {
     $course_product_link = get_field('field_6821879221940', $post_id);
     $enroll_product_link = get_field('field_6821879e21941', $post_id);
     $course_price = get_field('field_681ccc6eb123a', $post_id) ?: '749.99';
-    $course_visibility = get_field('field_68314e3c26394', $post_id) ?: 'don\'t show buy course';
 
     // Get available start dates from ACF repeater field
     $available_dates = [];
@@ -38,9 +37,9 @@ function selectable_boxes_shortcode() {
         }
     }
 
-    // Handle case when no dates are available
-    if (empty($available_dates)) {
-        error_log('Selectable Boxes Plugin: No start dates available for post ID ' . $post_id);
+    // Handle case when no dates are available AND no product links
+    if (empty($available_dates) && empty($course_product_link) && empty($enroll_product_link)) {
+        error_log('Selectable Boxes Plugin: No start dates or product links available for post ID ' . $post_id);
         ob_start();
         ?>
         <div class="box-container">
@@ -56,7 +55,6 @@ function selectable_boxes_shortcode() {
 
     // Debug: Log field values
     error_log('Selectable Boxes Plugin: Post ID = ' . $post_id);
-    error_log('Selectable Boxes Plugin: course_visibility = ' . $course_visibility);
     error_log('Selectable Boxes Plugin: course_product_link = ' . ($course_product_link ?: 'empty'));
     error_log('Selectable Boxes Plugin: enroll_product_link = ' . ($enroll_product_link ?: 'empty'));
     error_log('Selectable Boxes Plugin: course_price = ' . $course_price);
@@ -64,6 +62,7 @@ function selectable_boxes_shortcode() {
 
     $enroll_price = '1249.99';
     $is_out_of_stock = false;
+    $is_enroll_out_of_stock = false;
     $course_product_id = 0;
     $enroll_product_id = 0;
 
@@ -91,6 +90,9 @@ function selectable_boxes_shortcode() {
             $product = wc_get_product($enroll_product_id);
             if ($product) {
                 $enroll_price = $product->get_price() ?: '1249.99';
+                if (!$product->is_in_stock()) {
+                    $is_enroll_out_of_stock = true;
+                }
             }
         }
     }
@@ -103,15 +105,22 @@ function selectable_boxes_shortcode() {
     ?>
     <div class="selectable-box-container">
         <div class="box-container">
-            <?php if ($is_out_of_stock) : ?>
+            <?php if ($is_out_of_stock && $is_enroll_out_of_stock) : ?>
                 <div class="box soldout-course">
-                    <div class="soldout-header"><span>THE COURSE IS SOLD OUT</span></div>
+                    <div class="soldout-header"><span>SOLD OUT</span></div>
                     <h3>Join Waitlist for Free</h3>
                     <p class="description">Gain access to live streams, free credits for Arcana, and more.</p>
                     [contact-form-7 id="c2b4e27" title="Course Sold Out"]
                     <p class="terms">By signing up, you agree to the Terms & Conditions.</p>
                 </div>
-            <?php elseif (empty($course_product_link) || $show_countdown) : ?>
+            <?php elseif (empty($course_product_link) && empty($enroll_product_link)) : ?>
+                <div class="box course-launch">
+                    <h3>Join Waitlist for Free</h3>
+                    <p class="description">Gain access to live streams, free credits for Arcana, and more.</p>
+                    [contact-form-7 id="255b390" title="Course Launch"]
+                    <p class="terms">By signing up, you agree to the Terms & Conditions.</p>
+                </div>
+            <?php elseif ($show_countdown && empty($enroll_product_link)) : ?>
                 <div class="box course-launch">
                     <div class="countdown">
                         <span>COURSE LAUNCH IN:</span>
@@ -153,17 +162,17 @@ function selectable_boxes_shortcode() {
                     <p class="terms">By signing up, you agree to the Terms & Conditions.</p>
                 </div>
             <?php else : ?>
-                <?php if ($course_visibility === 'show buy course' && !empty($course_product_link)) : ?>
-                    <div class="box buy-course selected" onclick="selectBox(this, 'box1')">
+                <?php if (!empty($course_product_link)) : ?>
+                    <div class="box buy-course<?php echo empty($enroll_product_link) ? ' selected' : ''; ?>" onclick="selectBox(this, 'box1')">
                         <div class="statebox">
-                            <div class="circlecontainer" style="display: flex;">
+                            <div class="circlecontainer" style="display: <?php echo empty($enroll_product_link) ? 'flex' : 'none'; ?>;">
                                 <div class="outer-circle">
                                     <div class="middle-circle">
                                         <div class="inner-circle"></div>
                                     </div>
                                 </div>
                             </div>
-                            <div class="circle-container" style="display: none;">
+                            <div class="circle-container" style="display: <?php echo empty($enroll_product_link) ? 'none' : 'flex'; ?>;">
                                 <div class="circle"></div>
                             </div>
                             <div>
@@ -175,16 +184,17 @@ function selectable_boxes_shortcode() {
                         <button class="add-to-cart-button" data-product-id="<?php echo esc_attr($course_product_id); ?>">Buy Course</button>
                     </div>
                 <?php endif; ?>
-                <div class="box enroll-course<?php echo $course_visibility === 'don\'t show buy course' ? ' selected' : ''; ?>" onclick="selectBox(this, 'box2')">
+                <?php if (!empty($enroll_product_link)) : ?>
+                <div class="box enroll-course<?php echo empty($course_product_link) ? ' selected' : ''; ?>" onclick="selectBox(this, 'box2')">
                     <div class="statebox">
-                        <div class="circlecontainer" style="display: <?php echo $course_visibility === 'don\'t show buy course' ? 'flex' : 'none'; ?>;">
+                        <div class="circlecontainer" style="display: <?php echo empty($course_product_link) ? 'flex' : 'none'; ?>;">
                             <div class="outer-circle">
                                 <div class="middle-circle">
                                     <div class="inner-circle"></div>
                                 </div>
                             </div>
                         </div>
-                        <div class="circle-container" style="display: <?php echo $course_visibility === 'don\'t show buy course' ? 'none' : 'flex'; ?>;">
+                        <div class="circle-container" style="display: <?php echo empty($course_product_link) ? 'none' : 'flex'; ?>;">
                             <div class="circle"></div>
                         </div>
                         <div>
@@ -194,7 +204,7 @@ function selectable_boxes_shortcode() {
                         </div>
                     </div>
                     <hr class="divider">
-                    <div class="start-dates" style="display: <?php echo $course_visibility === 'don\'t show buy course' ? 'block' : 'none'; ?>;">
+                    <div class="start-dates" style="display: <?php echo empty($course_product_link) ? 'block' : 'none'; ?>;">
                         <p class="choose-label">Choose a starting date</p>
                         <div class="date-options">
                             <?php
@@ -204,12 +214,13 @@ function selectable_boxes_shortcode() {
                             ?>
                         </div>
                     </div>
-                    <button class="add-to-cart-button" data-product-id="<?php echo esc_attr($enroll_product_id); ?>">
-                        <span class="button-text">Enroll Now</span>
+                    <button class="add-to-cart-button" data-product-id="<?php echo esc_attr($enroll_product_id); ?>" <?php echo $is_enroll_out_of_stock ? 'disabled' : ''; ?>>
+                        <span class="button-text"><?php echo $is_enroll_out_of_stock ? 'Sold Out' : 'Enroll Now'; ?></span>
                         <span class="loader" style="display: none;"></span>
                     </button>
                     [seats_remaining]
                 </div>
+                <?php endif; ?>
             <?php endif; ?>
         </div>
         <div class="text-outside-box">
@@ -299,6 +310,12 @@ function selectable_boxes_shortcode() {
 
         .box-container .box button:hover {
             background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .box-container .box button:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+            opacity: 0.6;
         }
 
         .box-container .divider {
@@ -665,15 +682,20 @@ right: 40%!important;
             console.log('DOM loaded, initializing selectable boxes');
             const enrollBox = document.querySelector('.enroll-course');
             const courseBox = document.querySelector('.buy-course');
-            const courseVisibility = '<?php echo esc_js($course_visibility); ?>';
-            console.log('Course visibility:', courseVisibility);
 
-            if (courseVisibility === 'don\'t show buy course' && enrollBox) {
-                console.log('Selecting enroll box by default');
+            // Select the first available box by default based on PHP classes
+            if (courseBox && courseBox.classList.contains('selected')) {
+                console.log('Course box already selected by default');
+                selectBox(courseBox, 'box1');
+            } else if (enrollBox && enrollBox.classList.contains('selected')) {
+                console.log('Enroll box already selected by default');
                 selectBox(enrollBox, 'box2');
-            } else if (courseVisibility === 'show buy course' && courseBox) {
+            } else if (courseBox) {
                 console.log('Selecting course box by default');
                 selectBox(courseBox, 'box1');
+            } else if (enrollBox) {
+                console.log('Selecting enroll box by default');
+                selectBox(enrollBox, 'box2');
             }
 
             const firstDateBtn = document.querySelector('.enroll-course .date-btn');
