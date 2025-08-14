@@ -23,16 +23,25 @@ function selectable_boxes_shortcode() {
     $enroll_product_link = get_field('field_6821879e21941', $post_id);
     $course_price = get_field('field_681ccc6eb123a', $post_id) ?: '749.99';
 
-    // Get available start dates from ACF repeater field
+    // Get available start dates and stocks from ACF repeater field
     $available_dates = [];
+    $date_stocks = [];
     $has_dates = false;
+    $all_dates_sold_out = true;
     if (have_rows('field_6826dd2179231', $post_id)) {
         while (have_rows('field_6826dd2179231', $post_id)) {
             the_row();
             $date_text = get_sub_field('field_6826dfe2d7837');
+            $stock = get_sub_field('field_684ba360c13e2'); // webinar_stock
             if (!empty($date_text)) {
-                $available_dates[] = sanitize_text_field($date_text);
+                $sanitized_date = sanitize_text_field($date_text);
+                $available_dates[] = $sanitized_date;
+                $date_stocks[$sanitized_date] = is_numeric($stock) ? intval($stock) : 10;
                 $has_dates = true;
+                // Check if at least one date has stock
+                if ($date_stocks[$sanitized_date] > 0) {
+                    $all_dates_sold_out = false;
+                }
             }
         }
     }
@@ -90,10 +99,14 @@ function selectable_boxes_shortcode() {
             $product = wc_get_product($enroll_product_id);
             if ($product) {
                 $enroll_price = $product->get_price() ?: '1249.99';
-                if (!$product->is_in_stock()) {
+                // Check if product is out of stock OR all dates are sold out
+                if (!$product->is_in_stock() || $all_dates_sold_out) {
                     $is_enroll_out_of_stock = true;
                 }
             }
+        } else if ($all_dates_sold_out) {
+            // Even if we can't get the product, mark as sold out if all dates are sold out
+            $is_enroll_out_of_stock = true;
         }
     }
 
@@ -215,7 +228,11 @@ function selectable_boxes_shortcode() {
                         <div class="date-options">
                             <?php
                             foreach ($available_dates as $date) {
-                                echo '<button class="date-btn" data-date="' . esc_attr($date) . '">' . esc_html($date) . '</button>';
+                                $stock = isset($date_stocks[$date]) ? $date_stocks[$date] : 0;
+                                $disabled = $stock <= 0 ? 'disabled' : '';
+                                $class = $stock <= 0 ? 'date-btn sold-out' : 'date-btn';
+                                $label = $stock <= 0 ? $date . ' (Sold Out)' : $date;
+                                echo '<button class="' . esc_attr($class) . '" data-date="' . esc_attr($date) . '" data-stock="' . esc_attr($stock) . '" ' . $disabled . '>' . esc_html($label) . '</button>';
                             }
                             ?>
                         </div>
@@ -477,7 +494,8 @@ function selectable_boxes_shortcode() {
         }
 
         .box-container .date-btn {
-            width: 68px;
+            width: auto;
+            min-width: 68px;
             padding: 5px 8px;
             border: none;
             border-radius: 25px;
@@ -486,9 +504,17 @@ function selectable_boxes_shortcode() {
             cursor: pointer;
         }
 
-        .box-container .date-btn:hover,
-        .box-container .date-btn.selected {
+        .box-container .date-btn:hover:not(:disabled),
+        .box-container .date-btn.selected:not(:disabled) {
             background-color: #cc3071;
+        }
+
+        .box-container .date-btn.sold-out,
+        .box-container .date-btn:disabled {
+            background-color: #555;
+            color: #999;
+            cursor: not-allowed;
+            opacity: 0.6;
         }
 
         @keyframes fadeIn {
@@ -704,19 +730,32 @@ right: 40%!important;
                 selectBox(enrollBox, 'box2');
             }
 
-            const firstDateBtn = document.querySelector('.enroll-course .date-btn');
-            if (firstDateBtn) {
-                firstDateBtn.classList.add('selected');
-                selectedDate = firstDateBtn.getAttribute('data-date') || firstDateBtn.textContent.trim();
+            // Select first available date (not sold out)
+            const firstAvailableDateBtn = document.querySelector('.enroll-course .date-btn:not(.sold-out)');
+            if (firstAvailableDateBtn) {
+                firstAvailableDateBtn.classList.add('selected');
+                selectedDate = firstAvailableDateBtn.getAttribute('data-date') || firstAvailableDateBtn.textContent.trim();
                 console.log('Default selected date:', selectedDate);
+            } else {
+                // All dates are sold out
+                const enrollButton = document.querySelector('.enroll-course .add-to-cart-button');
+                if (enrollButton) {
+                    enrollButton.disabled = true;
+                    const buttonText = enrollButton.querySelector('.button-text');
+                    if (buttonText) buttonText.textContent = 'Sold Out';
+                }
             }
 
             document.querySelectorAll('.date-btn').forEach(btn => {
                 btn.addEventListener('click', function (e) {
                     e.stopPropagation();
+                    if (this.disabled || this.classList.contains('sold-out')) {
+                        console.log('Date is sold out, cannot select');
+                        return;
+                    }
                     document.querySelectorAll('.date-btn').forEach(b => b.classList.remove('selected'));
                     this.classList.add('selected');
-                    selectedDate = this.getAttribute('data-date') || this.textContent.trim();
+                    selectedDate = this.getAttribute('data-date') || this.textContent.trim().replace(' (Sold Out)', '');
                     console.log('Updated selected date:', selectedDate);
                 });
             });
