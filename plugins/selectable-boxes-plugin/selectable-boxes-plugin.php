@@ -105,7 +105,13 @@ function selectable_boxes_shortcode() {
     ?>
     <div class="selectable-box-container">
         <div class="box-container">
-            <?php if ($is_out_of_stock && $is_enroll_out_of_stock) : ?>
+            <?php 
+            // Show waitlist ONLY when both products exist and both are sold out
+            // OR when there are no products at all
+            $both_exist_both_sold_out = !empty($course_product_link) && !empty($enroll_product_link) && $is_out_of_stock && $is_enroll_out_of_stock;
+            $no_products = empty($course_product_link) && empty($enroll_product_link);
+            ?>
+            <?php if ($both_exist_both_sold_out) : ?>
                 <div class="box soldout-course">
                     <div class="soldout-header"><span>SOLD OUT</span></div>
                     <h3>Join Waitlist for Free</h3>
@@ -113,7 +119,7 @@ function selectable_boxes_shortcode() {
                     [contact-form-7 id="c2b4e27" title="Course Sold Out"]
                     <p class="terms">By signing up, you agree to the Terms & Conditions.</p>
                 </div>
-            <?php elseif (empty($course_product_link) && empty($enroll_product_link)) : ?>
+            <?php elseif ($no_products) : ?>
                 <div class="box course-launch">
                     <h3>Join Waitlist for Free</h3>
                     <p class="description">Gain access to live streams, free credits for Arcana, and more.</p>
