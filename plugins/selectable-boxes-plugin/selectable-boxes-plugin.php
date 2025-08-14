@@ -196,7 +196,7 @@ function selectable_boxes_shortcode() {
                             </div>
                             <div>
                                 <h3>Buy This Course</h3>
-                                <p class="price">$<?php echo esc_html(number_format($course_price, 2)); ?> USD</p>
+                                <p>[course_price]</p>
                                 <p class="description">Pay once, own the course forever.</p>
                             </div>
                         </div>
