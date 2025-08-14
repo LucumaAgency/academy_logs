@@ -987,66 +987,6 @@ function webinar_price_shortcode($atts) {
 add_shortcode('webinar_price', 'webinar_price_shortcode');
 
 /**
- * Shortcode to display course product prices with sale price below regular price
- */
-function course_price_shortcode($atts) {
-    $atts = shortcode_atts(['course_id' => 0], $atts, 'course_price');
-    $course_page_id = absint($atts['course_id']);
-
-    // Use current post ID if not provided
-    if (!$course_page_id && is_singular('course')) {
-        $course_page_id = get_the_ID();
-    }
-
-    if (!$course_page_id || get_post_type($course_page_id) !== 'course') {
-        error_log('course_price_shortcode: Invalid or missing course_page_id: ' . $course_page_id);
-        return '';
-    }
-
-    // Get related stm_course_id
-    $stm_course_id = get_post_meta($course_page_id, 'related_stm_course_id', true);
-    if (!$stm_course_id) {
-        error_log('course_price_shortcode: No related stm_course_id for course_page_id: ' . $course_page_id);
-        return '';
-    }
-
-    // Get related course product
-    $course_product_id = get_post_meta($stm_course_id, 'related_course_product_id', true);
-    if (!$course_product_id || get_post_type($course_product_id) !== 'product') {
-        error_log('course_price_shortcode: Invalid or missing course_product_id for stm_course_id: ' . $stm_course_id);
-        // Fallback to ACF field if product not found
-        $course_price = get_field('field_681ccc6eb123a', $course_page_id) ?: '749.99';
-        return '<div class="course-price"><div class="woocommerce-Price-amount amount regular-price">$' . number_format($course_price, 2) . ' USD</div></div>';
-    }
-
-    // Get prices from product
-    $regular_price = get_post_meta($course_product_id, '_regular_price', true) ?: 0;
-    $sale_price = get_post_meta($course_product_id, '_sale_price', true);
-
-    // Format prices using WooCommerce, appending USD
-    $formatted_regular_price = wc_price($regular_price) . ' USD';
-    $formatted_sale_price = $sale_price !== '' ? wc_price($sale_price) . ' USD' : '';
-
-    // Determine the lowest price for mobile display
-    $lowest_price = ($sale_price !== '' && $sale_price < $regular_price) ? $formatted_sale_price : $formatted_regular_price;
-
-    // Build output
-    $output = '<div class="course-price">';
-    $output .= '<div class="lowest-price-mobile">' . $lowest_price . '</div>'; // Lowest price for mobile
-    if ($sale_price !== '' && $sale_price < $regular_price) {
-        $output .= '<div class="woocommerce-Price-amount amount regular-price desktop-price"><del>' . $formatted_regular_price . '</del></div>';
-        $output .= '<div class="woocommerce-Price-amount amount sale-price desktop-price">' . $formatted_sale_price . '</div>';
-    } else {
-        $output .= '<div class="woocommerce-Price-amount amount regular-price desktop-price">' . $formatted_regular_price . '</div>';
-    }
-    $output .= '</div>';
-
-    error_log('course_price_shortcode: Rendered for course_page_id: ' . $course_page_id . ', regular_price: ' . $regular_price . ', sale_price: ' . ($sale_price !== '' ? $sale_price : 'none'));
-    return $output;
-}
-add_shortcode('course_price', 'course_price_shortcode');
-
-/**
  * Enqueue styles for the shortcode
  */
 function webinar_price_shortcode_styles() {

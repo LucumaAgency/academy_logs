@@ -974,4 +974,82 @@ add_action('woocommerce_email_order_meta', function ($order, $sent_to_admin, $pl
 }, 10, 4);
 
 add_shortcode('selectable_boxes', 'selectable_boxes_shortcode');
+
+/**
+ * Shortcode to display course product prices with sale price below regular price
+ */
+function course_price_shortcode($atts) {
+    $atts = shortcode_atts(['course_id' => 0], $atts, 'course_price');
+    $course_page_id = absint($atts['course_id']);
+
+    // Use current post ID if not provided
+    if (!$course_page_id && is_singular('course')) {
+        $course_page_id = get_the_ID();
+    }
+
+    if (!$course_page_id || get_post_type($course_page_id) !== 'course') {
+        error_log('course_price_shortcode: Invalid or missing course_page_id: ' . $course_page_id);
+        
+        // Fallback to current post if it's a course post
+        global $post;
+        if ($post && isset($post->ID)) {
+            $course_price = get_field('field_681ccc6eb123a', $post->ID) ?: '749.99';
+            return '<div class="course-price"><div class="woocommerce-Price-amount amount regular-price">$' . number_format((float)$course_price, 2) . ' USD</div></div>';
+        }
+        return '';
+    }
+
+    // First try to get price directly from ACF field
+    $course_price = get_field('field_681ccc6eb123a', $course_page_id);
+    
+    // If we have a course price from ACF, use it
+    if ($course_price) {
+        return '<div class="course-price"><div class="woocommerce-Price-amount amount regular-price">$' . number_format((float)$course_price, 2) . ' USD</div></div>';
+    }
+
+    // Otherwise, try to get from related products
+    $stm_course_id = get_post_meta($course_page_id, 'related_stm_course_id', true);
+    if (!$stm_course_id) {
+        // Default fallback
+        return '<div class="course-price"><div class="woocommerce-Price-amount amount regular-price">$749.99 USD</div></div>';
+    }
+
+    // Get related course product
+    $course_product_id = get_post_meta($stm_course_id, 'related_course_product_id', true);
+    if (!$course_product_id || get_post_type($course_product_id) !== 'product') {
+        // Fallback to default price
+        return '<div class="course-price"><div class="woocommerce-Price-amount amount regular-price">$749.99 USD</div></div>';
+    }
+
+    // Get prices from product
+    $regular_price = get_post_meta($course_product_id, '_regular_price', true) ?: 749.99;
+    $sale_price = get_post_meta($course_product_id, '_sale_price', true);
+
+    // Format prices using WooCommerce if available, otherwise format manually
+    if (function_exists('wc_price')) {
+        $formatted_regular_price = wc_price($regular_price) . ' USD';
+        $formatted_sale_price = $sale_price !== '' ? wc_price($sale_price) . ' USD' : '';
+    } else {
+        $formatted_regular_price = '$' . number_format((float)$regular_price, 2) . ' USD';
+        $formatted_sale_price = $sale_price !== '' ? '$' . number_format((float)$sale_price, 2) . ' USD' : '';
+    }
+
+    // Determine the lowest price for mobile display
+    $lowest_price = ($sale_price !== '' && $sale_price < $regular_price) ? $formatted_sale_price : $formatted_regular_price;
+
+    // Build output
+    $output = '<div class="course-price">';
+    $output .= '<div class="lowest-price-mobile">' . $lowest_price . '</div>'; // Lowest price for mobile
+    if ($sale_price !== '' && $sale_price < $regular_price) {
+        $output .= '<div class="woocommerce-Price-amount amount regular-price desktop-price"><del>' . $formatted_regular_price . '</del></div>';
+        $output .= '<div class="woocommerce-Price-amount amount sale-price desktop-price">' . $formatted_sale_price . '</div>';
+    } else {
+        $output .= '<div class="woocommerce-Price-amount amount regular-price desktop-price">' . $formatted_regular_price . '</div>';
+    }
+    $output .= '</div>';
+
+    error_log('course_price_shortcode: Rendered for course_page_id: ' . $course_page_id . ', regular_price: ' . $regular_price . ', sale_price: ' . ($sale_price !== '' ? $sale_price : 'none'));
+    return $output;
+}
+add_shortcode('course_price', 'course_price_shortcode');
 ?>
