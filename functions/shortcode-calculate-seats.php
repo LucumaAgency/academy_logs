@@ -13,6 +13,16 @@ function seats_remaining_shortcode($atts) {
         return '<p>Error: This shortcode must be used on a course page.</p>';
     }
 
+    // Check if only course price is filled (no webinar/enroll product)
+    $course_product_link = get_field('field_6821879221940', $post_id);
+    $enroll_product_link = get_field('field_6821879e21941', $post_id);
+    
+    // If only course product exists (no webinar/enroll product), hide this shortcode
+    if (!empty($course_product_link) && empty($enroll_product_link)) {
+        error_log('Seats Remaining Shortcode: Only course product exists, hiding seats remaining');
+        return '<div style="display: none;"></div>';
+    }
+
     // Get available start dates and stocks from ACF repeater field
     $available_dates = [];
     $date_stocks = [];
@@ -40,7 +50,6 @@ function seats_remaining_shortcode($atts) {
     error_log('Seats Remaining Shortcode: Default date set to ' . $default_date);
 
     // Get enroll product ID
-    $enroll_product_link = get_field('field_6821879e21941', $post_id);
     $enroll_product_id = 0;
     if (!empty($enroll_product_link)) {
         $url_parts = parse_url($enroll_product_link, PHP_URL_QUERY);

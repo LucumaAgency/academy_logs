@@ -105,7 +105,7 @@ function webinar_price_shortcode_styles() {
                 .webinar-price .lowest-price-mobile {
                     display: block;
                     color: #FFF;
-                    font-weight: bold;
+                    font-weight: 400;
                 }
             }
             /* Ensure webinar price has correct text color in boxes */

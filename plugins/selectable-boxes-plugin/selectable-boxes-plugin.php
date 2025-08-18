@@ -2,7 +2,7 @@
 /*
 Plugin Name: Selectable Boxes Plugin
 Description: A plugin to create selectable boxes for courses with live course date options from ACF, dynamic launch countdown, an admin dropdown in course post type to show/hide course box, and saves selected start date to order metadata, displayed in orders and emails. Supports multiple products in FunnelKit Cart.
-Version: 1.33
+Version: 1.41
 Author: Carlos Murillo
 */
 
@@ -182,7 +182,7 @@ function selectable_boxes_shortcode() {
                 </div>
             <?php else : ?>
                 <?php if (!empty($course_product_link)) : ?>
-                    <div class="box buy-course<?php echo empty($enroll_product_link) ? ' selected' : ''; ?>" onclick="selectBox(this, 'box1')">
+                    <div class="box buy-course<?php echo empty($enroll_product_link) ? ' selected' : ''; ?>" <?php echo !empty($enroll_product_link) ? 'onclick="selectBox(this, \'box1\')"' : 'style="cursor: default;"'; ?>>
                         <div class="statebox">
                             <div class="circlecontainer" style="display: <?php echo empty($enroll_product_link) ? 'flex' : 'none'; ?>;">
                                 <div class="outer-circle">
@@ -200,11 +200,14 @@ function selectable_boxes_shortcode() {
                                 <p class="description">Pay once, own the course forever.</p>
                             </div>
                         </div>
-                        <button class="add-to-cart-button" data-product-id="<?php echo esc_attr($course_product_id); ?>">Buy Course</button>
+                        <button class="add-to-cart-button" data-product-id="<?php echo esc_attr($course_product_id); ?>" <?php echo $is_out_of_stock ? 'disabled' : ''; ?> style="<?php echo empty($enroll_product_link) ? 'display: block;' : ''; ?>">
+                            <span class="button-text"><?php echo $is_out_of_stock ? 'Sold Out' : 'Buy Course'; ?></span>
+                            <span class="loader" style="display: none;"></span>
+                        </button>
                     </div>
                 <?php endif; ?>
                 <?php if (!empty($enroll_product_link)) : ?>
-                <div class="box enroll-course<?php echo empty($course_product_link) ? ' selected' : ''; ?>" onclick="selectBox(this, 'box2')">
+                <div class="box enroll-course<?php echo empty($course_product_link) ? ' selected' : ''; ?>" <?php echo !empty($course_product_link) ? 'onclick="selectBox(this, \'box2\')"' : 'style="cursor: default;"'; ?>>
                     <div class="statebox">
                         <div class="circlecontainer" style="display: <?php echo empty($course_product_link) ? 'flex' : 'none'; ?>;">
                             <div class="outer-circle">
@@ -292,6 +295,16 @@ function selectable_boxes_shortcode() {
 
         .box-container .box:not(.selected) {
             opacity: 0.7;
+        }
+        
+        /* When there's only one box, remove hover effects and opacity changes */
+        .box-container .box:only-child {
+            opacity: 1 !important;
+            cursor: default !important;
+        }
+        
+        .box-container .box:only-child:hover {
+            transform: none !important;
         }
 
         .box-container .box.no-button button {
@@ -715,19 +728,44 @@ right: 40%!important;
             const enrollBox = document.querySelector('.enroll-course');
             const courseBox = document.querySelector('.buy-course');
 
-            // Select the first available box by default based on PHP classes
-            if (courseBox && courseBox.classList.contains('selected')) {
-                console.log('Course box already selected by default');
-                selectBox(courseBox, 'box1');
-            } else if (enrollBox && enrollBox.classList.contains('selected')) {
-                console.log('Enroll box already selected by default');
-                selectBox(enrollBox, 'box2');
-            } else if (courseBox) {
-                console.log('Selecting course box by default');
-                selectBox(courseBox, 'box1');
-            } else if (enrollBox) {
-                console.log('Selecting enroll box by default');
-                selectBox(enrollBox, 'box2');
+            // If only one box exists, ensure it's properly selected
+            if (courseBox && !enrollBox) {
+                console.log('Only course box exists, ensuring it is selected');
+                // Ensure the box has selected class and proper visual state
+                if (!courseBox.classList.contains('selected')) {
+                    courseBox.classList.add('selected');
+                }
+                courseBox.classList.remove('no-button');
+                const circleContainer = courseBox.querySelector('.circle-container');
+                const circlecontainer = courseBox.querySelector('.circlecontainer');
+                if (circleContainer) circleContainer.style.display = 'none';
+                if (circlecontainer) circlecontainer.style.display = 'flex';
+            } else if (enrollBox && !courseBox) {
+                console.log('Only enroll box exists, ensuring it is selected');
+                // Ensure the box has selected class and proper visual state
+                if (!enrollBox.classList.contains('selected')) {
+                    enrollBox.classList.add('selected');
+                }
+                enrollBox.classList.remove('no-button');
+                const circleContainer = enrollBox.querySelector('.circle-container');
+                const circlecontainer = enrollBox.querySelector('.circlecontainer');
+                const startDates = enrollBox.querySelector('.start-dates');
+                if (circleContainer) circleContainer.style.display = 'none';
+                if (circlecontainer) circlecontainer.style.display = 'flex';
+                if (startDates) startDates.style.display = 'block';
+            } else if (courseBox && enrollBox) {
+                // Both boxes exist, use the default selection logic
+                if (courseBox.classList.contains('selected')) {
+                    console.log('Course box already selected by default');
+                    selectBox(courseBox, 'box1');
+                } else if (enrollBox.classList.contains('selected')) {
+                    console.log('Enroll box already selected by default');
+                    selectBox(enrollBox, 'box2');
+                } else {
+                    // No default selection from PHP, select course box
+                    console.log('Selecting course box by default');
+                    selectBox(courseBox, 'box1');
+                }
             }
 
             // Select first available date (not sold out)
@@ -994,62 +1032,34 @@ function course_price_shortcode($atts) {
         global $post;
         if ($post && isset($post->ID)) {
             $course_price = get_field('field_681ccc6eb123a', $post->ID) ?: '749.99';
-            return '<div class="course-price"><div class="woocommerce-Price-amount amount regular-price">$' . number_format((float)$course_price, 2) . ' USD</div></div>';
+            $sale_price = get_field('field_689f3a6f5b266', $post->ID);
+            
+            // Build output with sale price if available
+            if ($sale_price && $sale_price < $course_price) {
+                return '<div class="course-price">' .
+                       '<div class="woocommerce-Price-amount amount regular-price" style="font-size: 18px;"><del>$' . number_format((float)$course_price, 2) . ' USD</del></div>' .
+                       '<div class="woocommerce-Price-amount amount sale-price" style="font-size: 30px;">$' . number_format((float)$sale_price, 2) . ' USD</div>' .
+                       '</div>';
+            }
+            return '<div class="course-price"><div class="woocommerce-Price-amount amount regular-price" style="font-size: 30px;">$' . number_format((float)$course_price, 2) . ' USD</div></div>';
         }
         return '';
     }
 
-    // First try to get price directly from ACF field
-    $course_price = get_field('field_681ccc6eb123a', $course_page_id);
+    // Get prices from ACF fields
+    $course_price = get_field('field_681ccc6eb123a', $course_page_id) ?: '749.99';
+    $sale_price = get_field('field_689f3a6f5b266', $course_page_id);
     
-    // If we have a course price from ACF, use it
-    if ($course_price) {
-        return '<div class="course-price"><div class="woocommerce-Price-amount amount regular-price">$' . number_format((float)$course_price, 2) . ' USD</div></div>';
+    // Build output with sale price if available
+    if ($sale_price && $sale_price < $course_price) {
+        return '<div class="course-price">' .
+               '<div class="woocommerce-Price-amount amount regular-price" style="font-size: 18px;"><del>$' . number_format((float)$course_price, 2) . ' USD</del></div>' .
+               '<div class="woocommerce-Price-amount amount sale-price" style="font-size: 30px;">$' . number_format((float)$sale_price, 2) . ' USD</div>' .
+               '</div>';
     }
-
-    // Otherwise, try to get from related products
-    $stm_course_id = get_post_meta($course_page_id, 'related_stm_course_id', true);
-    if (!$stm_course_id) {
-        // Default fallback
-        return '<div class="course-price"><div class="woocommerce-Price-amount amount regular-price">$749.99 USD</div></div>';
-    }
-
-    // Get related course product
-    $course_product_id = get_post_meta($stm_course_id, 'related_course_product_id', true);
-    if (!$course_product_id || get_post_type($course_product_id) !== 'product') {
-        // Fallback to default price
-        return '<div class="course-price"><div class="woocommerce-Price-amount amount regular-price">$749.99 USD</div></div>';
-    }
-
-    // Get prices from product
-    $regular_price = get_post_meta($course_product_id, '_regular_price', true) ?: 749.99;
-    $sale_price = get_post_meta($course_product_id, '_sale_price', true);
-
-    // Format prices using WooCommerce if available, otherwise format manually
-    if (function_exists('wc_price')) {
-        $formatted_regular_price = wc_price($regular_price) . ' USD';
-        $formatted_sale_price = $sale_price !== '' ? wc_price($sale_price) . ' USD' : '';
-    } else {
-        $formatted_regular_price = '$' . number_format((float)$regular_price, 2) . ' USD';
-        $formatted_sale_price = $sale_price !== '' ? '$' . number_format((float)$sale_price, 2) . ' USD' : '';
-    }
-
-    // Determine the lowest price for mobile display
-    $lowest_price = ($sale_price !== '' && $sale_price < $regular_price) ? $formatted_sale_price : $formatted_regular_price;
-
-    // Build output
-    $output = '<div class="course-price">';
-    $output .= '<div class="lowest-price-mobile">' . $lowest_price . '</div>'; // Lowest price for mobile
-    if ($sale_price !== '' && $sale_price < $regular_price) {
-        $output .= '<div class="woocommerce-Price-amount amount regular-price desktop-price"><del>' . $formatted_regular_price . '</del></div>';
-        $output .= '<div class="woocommerce-Price-amount amount sale-price desktop-price">' . $formatted_sale_price . '</div>';
-    } else {
-        $output .= '<div class="woocommerce-Price-amount amount regular-price desktop-price">' . $formatted_regular_price . '</div>';
-    }
-    $output .= '</div>';
-
-    error_log('course_price_shortcode: Rendered for course_page_id: ' . $course_page_id . ', regular_price: ' . $regular_price . ', sale_price: ' . ($sale_price !== '' ? $sale_price : 'none'));
-    return $output;
+    
+    // If no sale price or sale price is not lower, show regular price only
+    return '<div class="course-price"><div class="woocommerce-Price-amount amount regular-price" style="font-size: 30px;">$' . number_format((float)$course_price, 2) . ' USD</div></div>';
 }
 add_shortcode('course_price', 'course_price_shortcode');
 ?>
