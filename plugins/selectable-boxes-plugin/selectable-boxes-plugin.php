@@ -288,9 +288,14 @@ function selectable_boxes_shortcode() {
         }
 
         .box-container .box.selected {
-            background: linear-gradient(180deg, rgba(242, 46, 190, 0.2), rgba(170, 0, 212, 0.2));
+            background: linear-gradient(180deg, rgba(242, 46, 190, 0.2), rgba(170, 0, 212, 0.2)) !important;
             border: none;
             padding: 16px 12px;
+        }
+        
+        /* Ensure gradient shows in popup */
+        #popup .box-container .box.selected {
+            background: linear-gradient(180deg, rgba(242, 46, 190, 0.2), rgba(170, 0, 212, 0.2)) !important;
         }
 
         .box-container .box:not(.selected) {
@@ -305,6 +310,12 @@ function selectable_boxes_shortcode() {
         
         .box-container .box:only-child:hover {
             transform: none !important;
+        }
+        
+        /* Ensure single selected box shows gradient */
+        .box-container .box.buy-course:only-child.selected,
+        .box-container .box.enroll-course:only-child.selected {
+            background: linear-gradient(180deg, rgba(242, 46, 190, 0.2), rgba(170, 0, 212, 0.2)) !important;
         }
 
         .box-container .box.no-button button {
