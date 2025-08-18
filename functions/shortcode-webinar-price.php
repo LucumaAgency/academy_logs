@@ -22,9 +22,9 @@ function webinar_price_shortcode($atts) {
         return '';
     }
 
-    // First check ACF fields on the course page
-    $regular_price = get_field('course_price', $course_page_id);
-    $sale_price = get_field('course_sales_price', $course_page_id);
+    // First check ACF fields on the course page using field IDs for reliability
+    $regular_price = get_field('field_6853a215dbd49', $course_page_id);  // course_price
+    $sale_price = get_field('field_6853a231dbd4a', $course_page_id);     // course_sales_price
     
     // If ACF fields are empty, fall back to webinar product prices
     if (empty($regular_price)) {
@@ -65,7 +65,7 @@ function webinar_price_shortcode($atts) {
     }
     $output .= '</div>';
 
-    $price_source = !empty(get_field('course_price', $course_page_id)) ? 'ACF' : 'Webinar Product';
+    $price_source = !empty(get_field('field_6853a215dbd49', $course_page_id)) ? 'ACF' : 'Webinar Product';
     error_log('webinar_price_shortcode: Rendered for course_page_id: ' . $course_page_id . ', source: ' . $price_source . ', regular_price: ' . $regular_price . ', sale_price: ' . ($sale_price !== '' ? $sale_price : 'none'));
     return $output;
 }
