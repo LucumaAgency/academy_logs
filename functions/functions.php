@@ -945,23 +945,30 @@ function webinar_price_shortcode($atts) {
         return '';
     }
 
-    // Get related stm_course_id
-    $stm_course_id = get_post_meta($course_page_id, 'related_stm_course_id', true);
-    if (!$stm_course_id) {
-        error_log('webinar_price_shortcode: No related stm_course_id for course_page_id: ' . $course_page_id);
-        return '';
-    }
+    // First check ACF fields on the course page
+    $regular_price = get_field('course_price', $course_page_id);
+    $sale_price = get_field('course_sales_price', $course_page_id);
+    
+    // If ACF fields are empty, fall back to webinar product prices
+    if (empty($regular_price)) {
+        // Get related stm_course_id
+        $stm_course_id = get_post_meta($course_page_id, 'related_stm_course_id', true);
+        if (!$stm_course_id) {
+            error_log('webinar_price_shortcode: No related stm_course_id for course_page_id: ' . $course_page_id);
+            return '';
+        }
 
-    // Get related webinar product
-    $webinar_product_id = get_post_meta($stm_course_id, 'related_webinar_product_id', true);
-    if (!$webinar_product_id || get_post_type($webinar_product_id) !== 'product') {
-        error_log('webinar_price_shortcode: Invalid or missing webinar_product_id for stm_course_id: ' . $stm_course_id);
-        return '';
-    }
+        // Get related webinar product
+        $webinar_product_id = get_post_meta($stm_course_id, 'related_webinar_product_id', true);
+        if (!$webinar_product_id || get_post_type($webinar_product_id) !== 'product') {
+            error_log('webinar_price_shortcode: Invalid or missing webinar_product_id for stm_course_id: ' . $stm_course_id);
+            return '';
+        }
 
-    // Get prices from product (fallback to ACF if needed)
-    $regular_price = get_post_meta($webinar_product_id, '_regular_price', true) ?: 0;
-    $sale_price = get_post_meta($webinar_product_id, '_sale_price', true);
+        // Get prices from product
+        $regular_price = get_post_meta($webinar_product_id, '_regular_price', true) ?: 0;
+        $sale_price = get_post_meta($webinar_product_id, '_sale_price', true);
+    }
 
     // Format prices using WooCommerce, appending USD
     $formatted_regular_price = wc_price($regular_price) . ' USD';
@@ -981,7 +988,8 @@ function webinar_price_shortcode($atts) {
     }
     $output .= '</div>';
 
-    error_log('webinar_price_shortcode: Rendered for course_page_id: ' . $course_page_id . ', regular_price: ' . $regular_price . ', sale_price: ' . ($sale_price !== '' ? $sale_price : 'none'));
+    $price_source = !empty(get_field('course_price', $course_page_id)) ? 'ACF' : 'Webinar Product';
+    error_log('webinar_price_shortcode: Rendered for course_page_id: ' . $course_page_id . ', source: ' . $price_source . ', regular_price: ' . $regular_price . ', sale_price: ' . ($sale_price !== '' ? $sale_price : 'none'));
     return $output;
 }
 add_shortcode('webinar_price', 'webinar_price_shortcode');
