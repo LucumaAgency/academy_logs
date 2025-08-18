@@ -249,12 +249,6 @@ function selectable_boxes_shortcode() {
                 <?php endif; ?>
             <?php endif; ?>
         </div>
-        <div class="text-outside-box">
-            <p style="text-align: center; letter-spacing: 0.9px; margin-top: 30px; font-weight: 200; font-size: 12px;">
-                <span style="font-weight: 500; font-size: 14px;">Missing a Class ?</span>
-                <br>No worries! All live courses will be recorded and made available on-demand to all students.
-            </p>
-        </div>
     </div>
 
     <style>
