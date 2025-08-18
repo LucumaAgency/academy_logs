@@ -862,7 +862,24 @@ right: 40%!important;
                                 console.log('Response type:', typeof response);
                                 console.log('Has fragments:', response && response.fragments ? 'YES' : 'NO');
                                 console.log('Has cart_hash:', response && response.cart_hash ? 'YES' : 'NO');
-                                if (response && response.fragments && response.cart_hash) {
+                                
+                                // Check if WooCommerce returned an error but with a product URL (common for products needing options)
+                                if (response && response.error && response.product_url) {
+                                    console.log('Product requires redirect, attempting direct cart URL method');
+                                    // Use direct cart URL method as fallback
+                                    const cartUrl = '<?php echo esc_url(wc_get_cart_url()); ?>?add-to-cart=' + productId;
+                                    console.log('Direct cart URL:', cartUrl);
+                                    
+                                    // Add via direct URL then refresh fragments
+                                    jQuery.get(cartUrl, function() {
+                                        console.log('Product added via direct URL, refreshing cart');
+                                        jQuery(document.body).trigger('wc_fragment_refresh');
+                                        resolve({fragments: {}, cart_hash: 'direct-add'});
+                                    }).fail(function() {
+                                        console.error('Direct URL method also failed');
+                                        reject(new Error('Failed to add product to cart.'));
+                                    });
+                                } else if (response && response.fragments && response.cart_hash) {
                                     console.log('Product added to cart successfully');
                                     resolve(response);
                                 } else {
@@ -893,9 +910,18 @@ right: 40%!important;
             
                             const response = await addToCart(productId, isEnrollButton ? selectedDate : null);
                             console.log('Add to cart response received:', response);
-                            console.log('Triggering added_to_cart with fragments and cart_hash');
-                            jQuery(document.body).trigger('added_to_cart', [response.fragments, response.cart_hash]);
-                            jQuery(document.body).trigger('wc_fragment_refresh');
+                            
+                            // Handle both normal and direct-add responses
+                            if (response.cart_hash === 'direct-add') {
+                                console.log('Product was added via direct URL, triggering cart refresh');
+                                jQuery(document.body).trigger('wc_fragment_refresh');
+                                // Wait a bit for the cart to update
+                                await new Promise(resolve => setTimeout(resolve, 500));
+                            } else {
+                                console.log('Triggering added_to_cart with fragments and cart_hash');
+                                jQuery(document.body).trigger('added_to_cart', [response.fragments, response.cart_hash]);
+                                jQuery(document.body).trigger('wc_fragment_refresh');
+                            }
             
                             setTimeout(() => {
                                 console.log('Forcing delayed cart refresh');
