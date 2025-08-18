@@ -89,7 +89,7 @@ function webinar_price_shortcode_styles() {
             }
             .webinar-price .sale-price {
                 color: #FFF;
-                font-weight: bold;
+                font-weight: normal;
                 display: block;
             }
             .webinar-price .desktop-price {

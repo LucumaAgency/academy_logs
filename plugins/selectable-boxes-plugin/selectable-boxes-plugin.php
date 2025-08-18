@@ -77,9 +77,11 @@ function selectable_boxes_shortcode() {
 
     // Extract course product ID
     if (!empty($course_product_link)) {
+        error_log('[DEBUG] course_product_link: ' . $course_product_link);
         $url_parts = parse_url($course_product_link, PHP_URL_QUERY);
         parse_str($url_parts, $query_params);
         $course_product_id = isset($query_params['add-to-cart']) ? intval($query_params['add-to-cart']) : 0;
+        error_log('[DEBUG] Extracted course_product_id: ' . $course_product_id);
 
         if ($course_product_id && function_exists('wc_get_product')) {
             $product = wc_get_product($course_product_id);
@@ -200,6 +202,7 @@ function selectable_boxes_shortcode() {
                                 <p class="description">Pay once, own the course forever.</p>
                             </div>
                         </div>
+                        <?php error_log('[DEBUG] Rendering Buy Course button with product_id: ' . $course_product_id); ?>
                         <button class="add-to-cart-button" data-product-id="<?php echo esc_attr($course_product_id); ?>" <?php echo $is_out_of_stock ? 'disabled' : ''; ?> style="<?php echo empty($enroll_product_link) ? 'display: block;' : ''; ?>">
                             <span class="button-text"><?php echo $is_out_of_stock ? 'Sold Out' : 'Buy Course'; ?></span>
                             <span class="loader" style="display: none;"></span>
@@ -813,7 +816,12 @@ right: 40%!important;
                 button.addEventListener('click', async function (e) {
                     e.preventDefault();
                     const productId = this.getAttribute('data-product-id');
-                    console.log('Add to cart button clicked, Product ID:', productId);
+                    const isBuyButton = this.closest('.buy-course') !== null;
+                    console.log('=== ADD TO CART DEBUG ===');
+                    console.log('Button clicked:', this);
+                    console.log('Is Buy Course button:', isBuyButton);
+                    console.log('Product ID from data attribute:', productId);
+                    console.log('Button parent classes:', this.parentElement.className);
             
                     if (!productId || productId === '0') {
                         console.error('Invalid product ID');
@@ -847,9 +855,13 @@ right: 40%!important;
                                 console.log('Including start_date in AJAX data:', startDate);
                             }
             
-                            console.log('Sending AJAX request with data:', data);
+                            console.log('Sending AJAX request with data:', JSON.stringify(data));
+                            console.log('AJAX URL:', '<?php echo esc_url(admin_url('admin-ajax.php')); ?>');
                             jQuery.post('<?php echo esc_url(admin_url('admin-ajax.php')); ?>', data, function (response) {
-                                console.log('AJAX response received:', response);
+                                console.log('AJAX raw response:', response);
+                                console.log('Response type:', typeof response);
+                                console.log('Has fragments:', response && response.fragments ? 'YES' : 'NO');
+                                console.log('Has cart_hash:', response && response.cart_hash ? 'YES' : 'NO');
                                 if (response && response.fragments && response.cart_hash) {
                                     console.log('Product added to cart successfully');
                                     resolve(response);
@@ -858,19 +870,29 @@ right: 40%!important;
                                     reject(new Error('Failed to add product to cart.'));
                                 }
                             }).fail(function (jqXHR, textStatus, errorThrown) {
-                                console.error('AJAX request failed:', textStatus, errorThrown);
+                                console.error('=== AJAX FAILED ===');
+                                console.error('Status:', textStatus);
+                                console.error('Error:', errorThrown);
+                                console.error('Response Text:', jqXHR.responseText);
+                                console.error('Response Status:', jqXHR.status);
+                                console.error('Full jqXHR object:', jqXHR);
                                 reject(new Error('Error communicating with the server: ' + textStatus));
                             });
                         });
                     };
             
                     const addProduct = async () => {
-                        console.log('Starting addProduct process');
+                        console.log('=== STARTING ADD PRODUCT PROCESS ===');
+                        console.log('Product ID to add:', productId);
+                        console.log('Is Enroll Button:', isEnrollButton);
+                        console.log('Selected Date (if enroll):', selectedDate);
+                        
                         try {
                             const cartContents = await getCartContents();
                             console.log('Current cart contents before adding:', cartContents);
             
                             const response = await addToCart(productId, isEnrollButton ? selectedDate : null);
+                            console.log('Add to cart response received:', response);
                             console.log('Triggering added_to_cart with fragments and cart_hash');
                             jQuery(document.body).trigger('added_to_cart', [response.fragments, response.cart_hash]);
                             jQuery(document.body).trigger('wc_fragment_refresh');
