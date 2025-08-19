@@ -1418,32 +1418,87 @@ add_shortcode('selectable_boxes', 'selectable_boxes_shortcode');
 add_action('wp_footer', function() {
     ?>
     <script type="text/javascript">
-    console.log('=== EMERGENCY FOOTER SCRIPT LOADED ===');
+    console.log('=== FOOTER CART SCRIPT LOADED ===');
     
-    // Define the test function globally
+    // Define the real add to cart function
     window.testAddToCart = function(productId) {
-        alert('Emergency function called! Product ID: ' + productId);
-        console.log('testAddToCart from footer:', productId);
+        console.log('Add to cart clicked for product:', productId);
         
-        // Try to add to cart via AJAX
+        // Get selected date from the page
+        var selectedDate = '';
+        var selectedDateBtn = document.querySelector('.enroll-course .date-btn.selected');
+        if (selectedDateBtn) {
+            selectedDate = selectedDateBtn.getAttribute('data-date') || selectedDateBtn.textContent.trim();
+            console.log('Selected date found:', selectedDate);
+        } else {
+            console.log('No date selected, checking for first available date');
+            var firstDateBtn = document.querySelector('.enroll-course .date-btn:not(.sold-out)');
+            if (firstDateBtn) {
+                selectedDate = firstDateBtn.getAttribute('data-date') || firstDateBtn.textContent.trim();
+                console.log('Using first available date:', selectedDate);
+            }
+        }
+        
+        if (!selectedDate) {
+            alert('Please select a start date before adding to cart.');
+            return false;
+        }
+        
+        // Show loading on button
+        var button = event.target.closest('button');
+        if (button) {
+            button.classList.add('loading');
+        }
+        
+        // Add to cart via AJAX with start date
         if (typeof jQuery !== 'undefined') {
             jQuery.post('<?php echo admin_url('admin-ajax.php'); ?>', {
                 action: 'woocommerce_add_to_cart',
                 product_id: productId,
-                quantity: 1
+                quantity: 1,
+                start_date: selectedDate
             }, function(response) {
                 console.log('Add to cart response:', response);
-                if (response.fragments) {
-                    alert('Product added to cart!');
-                    // Refresh cart
+                if (response && response.fragments) {
+                    console.log('Product added successfully, refreshing cart');
+                    
+                    // Trigger WooCommerce cart update events
+                    jQuery(document.body).trigger('added_to_cart', [response.fragments, response.cart_hash]);
                     jQuery(document.body).trigger('wc_fragment_refresh');
+                    jQuery(document.body).trigger('wc_update_cart');
+                    
+                    // Try to open FunnelKit cart
+                    setTimeout(function() {
+                        // Try multiple methods to open the cart
+                        jQuery(document).trigger('fkcart_open_cart');
+                        jQuery('.fkcart-cart-toggle').trigger('click');
+                        
+                        // Also try the FunnelKit specific method
+                        if (typeof window.fkcart_open_cart === 'function') {
+                            window.fkcart_open_cart();
+                        }
+                    }, 500);
+                    
+                } else if (response && response.error) {
+                    console.error('Error adding to cart:', response.error);
+                    alert('Error adding product to cart. Please try again.');
+                } else {
+                    console.error('Unexpected response:', response);
+                }
+            }).fail(function(jqXHR, textStatus) {
+                console.error('AJAX failed:', textStatus);
+                alert('Error communicating with server. Please try again.');
+            }).always(function() {
+                // Hide loading
+                if (button) {
+                    button.classList.remove('loading');
                 }
             });
         }
         return false;
     };
     
-    console.log('testAddToCart defined in footer:', typeof window.testAddToCart);
+    console.log('Real add to cart function defined:', typeof window.testAddToCart);
     </script>
     <?php
 }, 999);
