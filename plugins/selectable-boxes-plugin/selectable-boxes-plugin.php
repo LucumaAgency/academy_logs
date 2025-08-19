@@ -282,24 +282,19 @@ function selectable_boxes_shortcode() {
         }
 
         .box-container .box.selected {
-            background: linear-gradient(180deg, rgb(242, 46, 190), rgb(170, 0, 212)) !important;
+            background: linear-gradient(180deg, rgba(242, 46, 190, 0.2), rgba(170, 0, 212, 0.2)) !important;
             border: none;
             padding: 16px 12px;
         }
         
         /* Ensure gradient shows in popup */
         #popup .box-container .box.selected {
-            background: linear-gradient(180deg, rgb(242, 46, 190), rgb(170, 0, 212)) !important;
+            background: linear-gradient(180deg, rgba(242, 46, 190, 0.2), rgba(170, 0, 212, 0.2)) !important;
         }
         
         /* Force gradient for single buy-course box with selected class */
         .box-container .box.buy-course.selected:only-child {
-            background: linear-gradient(180deg, rgb(242, 46, 190), rgb(170, 0, 212)) !important;
-        }
-        
-        /* Make popup background transparent when there's only one box */
-        #popup:has(.box-container .box:only-child) {
-            background: transparent !important;
+            background: linear-gradient(180deg, rgba(242, 46, 190, 0.2), rgba(170, 0, 212, 0.2)) !important;
         }
 
         .box-container .box:not(.selected) {
@@ -319,7 +314,7 @@ function selectable_boxes_shortcode() {
         /* Ensure single selected box shows gradient */
         .box-container .box.buy-course:only-child.selected,
         .box-container .box.enroll-course:only-child.selected {
-            background: linear-gradient(180deg, rgb(242, 46, 190), rgb(170, 0, 212)) !important;
+            background: linear-gradient(180deg, rgba(242, 46, 190, 0.2), rgba(170, 0, 212, 0.2)) !important;
         }
 
         .box-container .box.no-button button {
@@ -561,7 +556,7 @@ function selectable_boxes_shortcode() {
             /* Ensure single Buy Course box shows gradient on mobile */
             .box-container .box.buy-course:only-child.selected,
             .box-container .box.buy-course:only-child {
-                background: linear-gradient(180deg, rgb(242, 46, 190), rgb(170, 0, 212)) !important;
+                background: linear-gradient(180deg, rgba(242, 46, 190, 0.2), rgba(170, 0, 212, 0.2)) !important;
                 border: none !important;
                 opacity: 1 !important;
             }
@@ -766,30 +761,56 @@ right: 40%!important;
             // If only one box exists, ensure it's properly selected
             if (courseBox && !enrollBox) {
                 console.log('Only course box exists, ensuring it is selected');
-                // Ensure the box has selected class and proper visual state
-                if (!courseBox.classList.contains('selected')) {
-                    courseBox.classList.add('selected');
-                }
-                courseBox.classList.remove('no-button');
-                const circleContainer = courseBox.querySelector('.circle-container');
-                const circlecontainer = courseBox.querySelector('.circlecontainer');
-                if (circleContainer) circleContainer.style.display = 'none';
-                if (circlecontainer) circlecontainer.style.display = 'flex';
                 
-                // On mobile, prevent any click from deselecting the single box
-                if (isMobile) {
-                    courseBox.style.pointerEvents = 'none';
-                    const button = courseBox.querySelector('.add-to-cart-button');
-                    if (button) button.style.pointerEvents = 'auto';
+                // Function to apply selected state
+                function applySelectedState() {
+                    courseBox.classList.add('selected');
+                    courseBox.classList.remove('no-button');
+                    const circleContainer = courseBox.querySelector('.circle-container');
+                    const circlecontainer = courseBox.querySelector('.circlecontainer');
+                    if (circleContainer) circleContainer.style.display = 'none';
+                    if (circlecontainer) circlecontainer.style.display = 'flex';
                     
-                    // Force maintain selected state on mobile
-                    setInterval(() => {
-                        if (!courseBox.classList.contains('selected')) {
-                            courseBox.classList.add('selected');
-                            courseBox.classList.remove('no-button');
-                        }
-                    }, 100);
+                    // Make button visible
+                    const button = courseBox.querySelector('.add-to-cart-button');
+                    if (button) {
+                        button.style.display = 'block';
+                        button.style.pointerEvents = 'auto';
+                    }
                 }
+                
+                // Apply immediately
+                applySelectedState();
+                
+                // Prevent clicks on the box itself
+                courseBox.style.cursor = 'default';
+                courseBox.onclick = function(e) {
+                    if (!e.target.classList.contains('add-to-cart-button') && 
+                        !e.target.closest('.add-to-cart-button')) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        applySelectedState();
+                    }
+                };
+                
+                // Force maintain selected state continuously
+                setInterval(applySelectedState, 50);
+                
+                // Also use MutationObserver to detect class changes
+                const observer = new MutationObserver(function(mutations) {
+                    mutations.forEach(function(mutation) {
+                        if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                            if (!courseBox.classList.contains('selected')) {
+                                applySelectedState();
+                            }
+                        }
+                    });
+                });
+                
+                observer.observe(courseBox, {
+                    attributes: true,
+                    attributeFilter: ['class']
+                });
             } else if (enrollBox && !courseBox) {
                 console.log('Only enroll box exists, ensuring it is selected');
                 // Ensure the box has selected class and proper visual state
