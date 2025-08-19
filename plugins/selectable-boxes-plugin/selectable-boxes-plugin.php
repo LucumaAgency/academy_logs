@@ -1091,6 +1091,125 @@ right: 40%!important;
                 updateCountdown();
                 setInterval(updateCountdown, 1000);
             }
+            
+            // Function to attach event listeners to dynamically loaded content (for popups)
+            function attachCartListenersToButtons() {
+                console.log('Checking for unattached add-to-cart buttons...');
+                document.querySelectorAll('.add-to-cart-button').forEach(button => {
+                    // Check if this button already has our listener attached
+                    if (!button.dataset.listenerAttached) {
+                        console.log('Found unattached button, attaching listener:', button);
+                        button.dataset.listenerAttached = 'true';
+                        
+                        button.addEventListener('click', async function (e) {
+                            console.log('=== DYNAMICALLY ATTACHED BUTTON CLICKED ===');
+                            console.log('Button element:', this);
+                            console.log('Is in popup?:', this.closest('#popup') !== null);
+                            
+                            e.preventDefault();
+                            const productId = this.getAttribute('data-product-id');
+                            const isEnrollButton = this.closest('.enroll-course') !== null;
+                            
+                            console.log('Product ID:', productId);
+                            console.log('Is enroll button:', isEnrollButton);
+                            
+                            if (!productId || productId === '0') {
+                                console.error('Invalid product ID');
+                                alert('Error: Invalid product. Please try again.');
+                                return;
+                            }
+                            
+                            // Check for selected date (use window.selectedDate for popup compatibility)
+                            const currentSelectedDate = window.selectedDate || selectedDate;
+                            console.log('Current selected date:', currentSelectedDate);
+                            
+                            if (isEnrollButton && !currentSelectedDate) {
+                                console.error('No start date selected');
+                                alert('Please select a start date before adding to cart.');
+                                return;
+                            }
+                            
+                            // Show loader
+                            this.classList.add('loading');
+                            
+                            // Use AJAX to add to cart
+                            const data = {
+                                action: 'woocommerce_add_to_cart',
+                                product_id: productId,
+                                quantity: 1,
+                                security: '<?php echo wp_create_nonce('woocommerce_add_to_cart'); ?>'
+                            };
+                            
+                            if (isEnrollButton && currentSelectedDate) {
+                                data.start_date = currentSelectedDate;
+                            }
+                            
+                            console.log('Sending AJAX request with data:', data);
+                            
+                            jQuery.post('<?php echo esc_url(admin_url('admin-ajax.php')); ?>', data, (response) => {
+                                console.log('AJAX response:', response);
+                                
+                                if (response && response.fragments) {
+                                    jQuery(document.body).trigger('added_to_cart', [response.fragments, response.cart_hash]);
+                                    jQuery(document.body).trigger('wc_fragment_refresh');
+                                    
+                                    // Open cart
+                                    setTimeout(() => {
+                                        jQuery(document).trigger('fkcart_open_cart');
+                                        // Close popup if exists
+                                        const popup = document.getElementById('popup');
+                                        if (popup && popup.style.display !== 'none') {
+                                            if (typeof closePopup === 'function') {
+                                                closePopup();
+                                            } else {
+                                                popup.style.display = 'none';
+                                                const overlay = document.getElementById('overlay');
+                                                if (overlay) overlay.style.display = 'none';
+                                            }
+                                        }
+                                    }, 500);
+                                    
+                                    console.log('✅ Product added to cart successfully!');
+                                } else if (response && response.error && response.product_url) {
+                                    // Fallback method
+                                    const cartUrl = '<?php echo esc_url(wc_get_cart_url()); ?>?add-to-cart=' + productId;
+                                    jQuery.get(cartUrl, function() {
+                                        jQuery(document.body).trigger('wc_fragment_refresh');
+                                        jQuery(document).trigger('fkcart_open_cart');
+                                    });
+                                } else {
+                                    console.error('Failed to add to cart:', response);
+                                    alert('Error adding product to cart. Please try again.');
+                                }
+                            }).fail((jqXHR, textStatus) => {
+                                console.error('AJAX failed:', textStatus);
+                                alert('Error communicating with server. Please try again.');
+                            }).always(() => {
+                                // Hide loader
+                                this.classList.remove('loading');
+                            });
+                        });
+                    }
+                });
+            }
+            
+            // Check for dynamically loaded content periodically
+            setInterval(attachCartListenersToButtons, 1000);
+            
+            // Also check when DOM changes (for popup scenarios)
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    if (mutation.addedNodes.length > 0) {
+                        setTimeout(attachCartListenersToButtons, 100);
+                    }
+                });
+            });
+            
+            // Observe the body for changes
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
         });
     </script>
     <?php

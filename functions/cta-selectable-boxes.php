@@ -101,76 +101,12 @@ function popup_selectable_boxes_shortcode() {
                             text: enrollButton.querySelector('.button-text')?.textContent
                         });
                         
-                        // Re-attach event listener manualmente
-                        console.log('Re-attaching cart event listener to popup button...');
-                        
-                        // Remover cualquier listener anterior para evitar duplicados
-                        const newButton = enrollButton.cloneNode(true);
-                        enrollButton.parentNode.replaceChild(newButton, enrollButton);
-                        
-                        // Adjuntar el event listener al botón del popup
-                        newButton.addEventListener('click', async function(e) {
-                            console.log('=== POPUP ENROLL BUTTON CLICKED ===');
-                            e.preventDefault();
-                            
-                            const productId = this.getAttribute('data-product-id');
-                            console.log('Product ID from popup:', productId);
-                            console.log('Selected date from popup:', window.selectedDate);
-                            
-                            if (!productId || productId === '0') {
-                                console.error('Invalid product ID in popup');
-                                alert('Error: Invalid product. Please try again.');
-                                return;
-                            }
-                            
-                            if (!window.selectedDate) {
-                                console.error('No start date selected in popup');
-                                alert('Please select a start date before adding to cart.');
-                                return;
-                            }
-                            
-                            // Show loader
-                            this.classList.add('loading');
-                            console.log('Adding to cart from popup...');
-                            
-                            // Use the existing addToCart function from the main script
-                            const data = {
-                                action: 'woocommerce_add_to_cart',
-                                product_id: productId,
-                                quantity: 1,
-                                start_date: window.selectedDate
-                            };
-                            
-                            console.log('AJAX data from popup:', data);
-                            
-                            jQuery.post('/wp-admin/admin-ajax.php', data, function(response) {
-                                console.log('AJAX response in popup:', response);
-                                
-                                if (response && response.fragments) {
-                                    jQuery(document.body).trigger('added_to_cart', [response.fragments, response.cart_hash]);
-                                    jQuery(document.body).trigger('wc_fragment_refresh');
-                                    
-                                    // Try to open cart
-                                    setTimeout(() => {
-                                        jQuery(document).trigger('fkcart_open_cart');
-                                        closePopup(); // Close the popup after adding to cart
-                                    }, 500);
-                                    
-                                    console.log('✅ Product added to cart from popup!');
-                                } else {
-                                    console.error('Failed to add to cart from popup:', response);
-                                    alert('Error adding product to cart. Please try again.');
-                                }
-                            }).fail(function(jqXHR, textStatus) {
-                                console.error('AJAX failed in popup:', textStatus);
-                                alert('Error communicating with server. Please try again.');
-                            }).always(function() {
-                                // Hide loader
-                                newButton.classList.remove('loading');
-                            });
-                        });
-                        
-                        console.log('✅ Event listener attached to popup button');
+                        // Re-attach event listener manualmente si es necesario
+                        console.log('Checking if button needs event listener reattachment...');
+                        if (!enrollButton._cartListenerAttached) {
+                            console.warn('⚠️ Button missing event listener! This may cause cart issues.');
+                            console.log('Consider manually re-attaching the click event listener');
+                        }
                     }
                 } else {
                     console.error('Enroll box not found in popup');
