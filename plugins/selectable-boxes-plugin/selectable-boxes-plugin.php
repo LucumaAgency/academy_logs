@@ -871,9 +871,18 @@ right: 40%!important;
 
             document.querySelectorAll('.add-to-cart-button').forEach(button => {
                 button.addEventListener('click', async function (e) {
+                    console.log('=== ADD TO CART BUTTON CLICKED ===');
+                    console.log('Button element:', this);
+                    console.log('Button HTML:', this.outerHTML);
+                    console.log('Parent container:', this.closest('.box')?.className);
+                    console.log('Is in popup?:', this.closest('#popup') !== null);
+                    
                     e.preventDefault();
                     const productId = this.getAttribute('data-product-id');
                     const isBuyButton = this.closest('.buy-course') !== null;
+                    
+                    console.log('Product ID:', productId);
+                    console.log('Is Buy button:', isBuyButton);
             
                     if (!productId || productId === '0') {
                         console.error('Invalid product ID');
@@ -883,6 +892,9 @@ right: 40%!important;
             
                     const isEnrollButton = this.closest('.enroll-course') !== null;
                     console.log('Is enroll button:', isEnrollButton);
+                    console.log('Selected date:', selectedDate);
+                    console.log('Window.selectedDate:', window.selectedDate);
+                    
                     if (isEnrollButton && !selectedDate) {
                         console.error('No start date selected for enroll course');
                         alert('Please select a start date before adding to cart.');
@@ -890,6 +902,7 @@ right: 40%!important;
                     }
             
                     // Show loader
+                    console.log('Adding loading class to button');
                     this.classList.add('loading');
             
                     const addToCart = (productId, startDate = null) => {
@@ -904,28 +917,48 @@ right: 40%!important;
                             if (startDate) {
                                 data.start_date = startDate;
                             }
+                            
+                            console.log('=== AJAX REQUEST TO ADD TO CART ===');
+                            console.log('Request URL:', '<?php echo esc_url(admin_url('admin-ajax.php')); ?>');
+                            console.log('Request data:', data);
             
                             jQuery.post('<?php echo esc_url(admin_url('admin-ajax.php')); ?>', data, function (response) {
+                                console.log('=== AJAX RESPONSE RECEIVED ===');
+                                console.log('Full response:', response);
+                                console.log('Response type:', typeof response);
+                                console.log('Has error?:', response?.error);
+                                console.log('Has fragments?:', response?.fragments);
+                                console.log('Has cart_hash?:', response?.cart_hash);
                                 
                                 // Check if WooCommerce returned an error but with a product URL (common for products needing options)
                                 if (response && response.error && response.product_url) {
+                                    console.log('Error with product URL detected, using fallback method');
                                     // Use direct cart URL method as fallback
                                     const cartUrl = '<?php echo esc_url(wc_get_cart_url()); ?>?add-to-cart=' + productId;
+                                    console.log('Fallback cart URL:', cartUrl);
                                     
                                     // Add via direct URL then refresh fragments
                                     jQuery.get(cartUrl, function() {
+                                        console.log('Fallback method succeeded');
                                         jQuery(document.body).trigger('wc_fragment_refresh');
                                         resolve({fragments: {}, cart_hash: 'direct-add'});
-                                    }).fail(function() {
+                                    }).fail(function(jqXHR, textStatus, errorThrown) {
+                                        console.error('Fallback method failed:', textStatus, errorThrown);
                                         reject(new Error('Failed to add product to cart.'));
                                     });
                                 } else if (response && response.fragments && response.cart_hash) {
+                                    console.log('Success: Product added to cart normally');
                                     resolve(response);
                                 } else {
+                                    console.error('Unexpected response format:', response);
                                     reject(new Error('Failed to add product to cart.'));
                                 }
                             }).fail(function (jqXHR, textStatus, errorThrown) {
-                                console.error('AJAX request failed:', textStatus, errorThrown);
+                                console.error('=== AJAX REQUEST FAILED ===');
+                                console.error('Status:', jqXHR.status);
+                                console.error('Response text:', jqXHR.responseText);
+                                console.error('Text status:', textStatus);
+                                console.error('Error thrown:', errorThrown);
                                 reject(new Error('Error communicating with the server: ' + textStatus));
                             });
                         });
@@ -933,23 +966,33 @@ right: 40%!important;
             
                     const addProduct = async () => {
                         try {
+                            console.log('=== STARTING ADD PRODUCT PROCESS ===');
                             const cartContents = await getCartContents();
                             console.log('Current cart contents before adding:', cartContents);
             
+                            console.log('Calling addToCart with:', {
+                                productId: productId,
+                                startDate: isEnrollButton ? selectedDate : null
+                            });
+                            
                             const response = await addToCart(productId, isEnrollButton ? selectedDate : null);
+                            
+                            console.log('Add to cart response received:', response);
                             
                             // Handle both normal and direct-add responses
                             if (response.cart_hash === 'direct-add') {
+                                console.log('Using direct-add method, triggering fragment refresh');
                                 jQuery(document.body).trigger('wc_fragment_refresh');
                                 // Wait a bit for the cart to update
                                 await new Promise(resolve => setTimeout(resolve, 500));
                             } else {
+                                console.log('Normal add to cart, triggering events');
                                 jQuery(document.body).trigger('added_to_cart', [response.fragments, response.cart_hash]);
                                 jQuery(document.body).trigger('wc_fragment_refresh');
                             }
             
                             setTimeout(() => {
-                                console.log('Forcing delayed cart refresh');
+                                console.log('Forcing delayed cart refresh after 1 second');
                                 jQuery(document.body).trigger('wc_fragment_refresh');
                                 jQuery(document).trigger('fkcart_open_cart');
                             }, 1000);
@@ -957,18 +1000,23 @@ right: 40%!important;
                             const updatedCartContents = await getCartContents();
                             console.log('Cart contents after adding product:', updatedCartContents);
             
-                            console.log('Calling openFunnelKitCart');
+                            console.log('Attempting to open FunnelKit Cart...');
                             const cartOpened = await openFunnelKitCart();
-                            console.log('Cart opened successfully:', cartOpened);
+                            console.log('Cart opened result:', cartOpened);
+                            
                             if (!cartOpened && !wasCartOpened && !wasCartManuallyClosed) {
-                                console.warn('Cart failed to open, notifying user to check manually');
+                                console.warn('⚠️ Cart failed to open automatically');
                                 alert('The cart may not have updated. Please check the cart manually.');
+                            } else {
+                                console.log('✅ Product successfully added to cart!');
                             }
                         } catch (error) {
-                            console.error('Error in addProduct:', error);
+                            console.error('❌ Error in addProduct:', error);
+                            console.error('Error stack:', error.stack);
                             alert('Error adding product to cart: ' + error.message);
                         } finally {
                             // Hide loader
+                            console.log('Removing loading class from button');
                             button.classList.remove('loading');
                         }
                     };
