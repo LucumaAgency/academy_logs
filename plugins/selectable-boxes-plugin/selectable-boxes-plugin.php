@@ -246,10 +246,14 @@ function selectable_boxes_shortcode() {
                             ?>
                         </div>
                     </div>
-                    <button class="add-to-cart-button" data-product-id="<?php echo esc_attr($enroll_product_id); ?>" <?php echo $is_enroll_out_of_stock ? 'disabled' : ''; ?>>
+                    <button class="add-to-cart-button" 
+                            data-product-id="<?php echo esc_attr($enroll_product_id); ?>" 
+                            <?php echo $is_enroll_out_of_stock ? 'disabled' : ''; ?>
+                            onclick="return testAddToCart('<?php echo esc_attr($enroll_product_id); ?>');">
                         <span class="button-text"><?php echo $is_enroll_out_of_stock ? 'Sold Out' : 'Enroll Now'; ?></span>
                         <span class="loader" style="display: none;"></span>
                     </button>
+                    <?php error_log('Button rendered with testAddToCart onclick for product: ' . $enroll_product_id); ?>
                     [seats_remaining]
                 </div>
                 <?php endif; ?>
@@ -636,6 +640,23 @@ right: 40%!important;
     </style>
 
     <script>
+        // Create a global function for testing
+        window.testAddToCart = function(productId) {
+            console.log('testAddToCart called with product:', productId);
+            alert('Test function called! Product ID: ' + productId);
+            
+            // Try to send AJAX request
+            if (typeof jQuery !== 'undefined') {
+                jQuery.post('<?php echo admin_url('admin-ajax.php'); ?>', {
+                    action: 'log_js_debug',
+                    message: 'testAddToCart called for product: ' + productId
+                }, function(response) {
+                    console.log('Server response:', response);
+                });
+            }
+            return false; // Prevent form submission
+        };
+        
         // Debug immediately when script loads
         console.log('=== SELECTABLE BOXES SCRIPT LOADED (MAIN PAGE) ===');
         <?php error_log('=== JAVASCRIPT BLOCK RENDERED IN SHORTCODE ==='); ?>
@@ -643,6 +664,7 @@ right: 40%!important;
         // Check jQuery availability
         if (typeof jQuery === 'undefined') {
             console.error('CRITICAL: jQuery is not available!');
+            alert('ERROR: jQuery is not loaded on this page!');
             // Try to log to server without jQuery
             var xhr = new XMLHttpRequest();
             xhr.open('POST', '<?php echo admin_url('admin-ajax.php'); ?>', true);
