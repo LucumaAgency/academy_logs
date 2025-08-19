@@ -554,15 +554,22 @@ function selectable_boxes_shortcode() {
             }
             
             /* Ensure single Buy Course box shows gradient on mobile */
-            .box-container .box.buy-course:only-child.selected {
+            .box-container .box.buy-course:only-child.selected,
+            .box-container .box.buy-course:only-child {
                 background: linear-gradient(180deg, rgba(242, 46, 190, 0.2), rgba(170, 0, 212, 0.2)) !important;
                 border: none !important;
                 opacity: 1 !important;
             }
             
-            /* Ensure button is visible for single selected box on mobile */
-            .box-container .box.buy-course:only-child.selected .add-to-cart-button {
+            /* Prevent pointer events on single box container but allow on button */
+            .box-container .box.buy-course:only-child {
+                pointer-events: none !important;
+            }
+            
+            /* Ensure button is visible and clickable for single box on mobile */
+            .box-container .box.buy-course:only-child .add-to-cart-button {
                 display: block !important;
+                pointer-events: auto !important;
             }
         }
 
@@ -749,6 +756,7 @@ right: 40%!important;
             console.log('DOM loaded, initializing selectable boxes');
             const enrollBox = document.querySelector('.enroll-course');
             const courseBox = document.querySelector('.buy-course');
+            const isMobile = window.innerWidth <= 767;
 
             // If only one box exists, ensure it's properly selected
             if (courseBox && !enrollBox) {
@@ -762,6 +770,21 @@ right: 40%!important;
                 const circlecontainer = courseBox.querySelector('.circlecontainer');
                 if (circleContainer) circleContainer.style.display = 'none';
                 if (circlecontainer) circlecontainer.style.display = 'flex';
+                
+                // On mobile, prevent any click from deselecting the single box
+                if (isMobile) {
+                    courseBox.style.pointerEvents = 'none';
+                    const button = courseBox.querySelector('.add-to-cart-button');
+                    if (button) button.style.pointerEvents = 'auto';
+                    
+                    // Force maintain selected state on mobile
+                    setInterval(() => {
+                        if (!courseBox.classList.contains('selected')) {
+                            courseBox.classList.add('selected');
+                            courseBox.classList.remove('no-button');
+                        }
+                    }, 100);
+                }
             } else if (enrollBox && !courseBox) {
                 console.log('Only enroll box exists, ensuring it is selected');
                 // Ensure the box has selected class and proper visual state
