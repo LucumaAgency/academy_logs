@@ -291,6 +291,11 @@ function selectable_boxes_shortcode() {
         #popup .box-container .box.selected {
             background: linear-gradient(180deg, rgba(242, 46, 190, 0.2), rgba(170, 0, 212, 0.2)) !important;
         }
+        
+        /* Force gradient for single buy-course box with selected class */
+        .box-container .box.buy-course.selected:only-child {
+            background: linear-gradient(180deg, rgba(242, 46, 190, 0.2), rgba(170, 0, 212, 0.2)) !important;
+        }
 
         .box-container .box:not(.selected) {
             opacity: 0.7;
@@ -546,6 +551,18 @@ function selectable_boxes_shortcode() {
             }
             .box-container .box h3 {
                 font-size: 1.2em;
+            }
+            
+            /* Ensure single Buy Course box shows gradient on mobile */
+            .box-container .box.buy-course:only-child.selected {
+                background: linear-gradient(180deg, rgba(242, 46, 190, 0.2), rgba(170, 0, 212, 0.2)) !important;
+                border: none !important;
+                opacity: 1 !important;
+            }
+            
+            /* Ensure button is visible for single selected box on mobile */
+            .box-container .box.buy-course:only-child.selected .add-to-cart-button {
+                display: block !important;
             }
         }
 
