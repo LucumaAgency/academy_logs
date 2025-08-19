@@ -613,10 +613,28 @@ function popup_selectable_boxes_shortcode() {
             const overlay = document.getElementById('overlay');
             popup.style.display = 'block';
             overlay.style.display = 'block';
+            
+            console.log('=== POPUP DEBUG START ===');
+            console.log('Popup element:', popup);
+            console.log('Overlay element:', overlay);
 
             // Forzar reinicialización de selectable_boxes con un retraso mayor
             setTimeout(() => {
                 console.log('Popup opened, initializing enroll-course selection');
+                
+                // Verificar que los event listeners del carrito estén presentes
+                const addToCartButtons = popup.querySelectorAll('.add-to-cart-button');
+                console.log('Add to cart buttons found in popup:', addToCartButtons.length);
+                
+                addToCartButtons.forEach((btn, index) => {
+                    console.log(`Button ${index}:`, {
+                        productId: btn.getAttribute('data-product-id'),
+                        disabled: btn.disabled,
+                        text: btn.querySelector('.button-text')?.textContent,
+                        closestBox: btn.closest('.box')?.className,
+                        hasClickListeners: btn.onclick || btn._listeners || btn.getEventListeners
+                    });
+                });
 
                 // Limpiar cualquier selección previa dentro del popup
                 popup.querySelectorAll('.box').forEach(box => {
@@ -664,9 +682,29 @@ function popup_selectable_boxes_shortcode() {
                     } else {
                         console.error('No date buttons found in enroll box');
                     }
+                    
+                    // Verificar el botón de Enroll Now
+                    const enrollButton = enrollBox.querySelector('.add-to-cart-button');
+                    if (enrollButton) {
+                        console.log('Enroll button details:', {
+                            exists: true,
+                            productId: enrollButton.getAttribute('data-product-id'),
+                            disabled: enrollButton.disabled,
+                            text: enrollButton.querySelector('.button-text')?.textContent
+                        });
+                        
+                        // Re-attach event listener manualmente si es necesario
+                        console.log('Checking if button needs event listener reattachment...');
+                        if (!enrollButton._cartListenerAttached) {
+                            console.warn('⚠️ Button missing event listener! This may cause cart issues.');
+                            console.log('Consider manually re-attaching the click event listener');
+                        }
+                    }
                 } else {
                     console.error('Enroll box not found in popup');
                 }
+                
+                console.log('=== POPUP DEBUG END ===');
             }, 300); // Aumentado a 300ms para asegurar que el DOM esté listo
         }
 
