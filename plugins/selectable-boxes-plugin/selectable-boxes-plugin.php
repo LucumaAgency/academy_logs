@@ -282,19 +282,24 @@ function selectable_boxes_shortcode() {
         }
 
         .box-container .box.selected {
-            background: linear-gradient(180deg, rgba(242, 46, 190, 0.2), rgba(170, 0, 212, 0.2)) !important;
+            background: linear-gradient(180deg, rgb(242, 46, 190), rgb(170, 0, 212)) !important;
             border: none;
             padding: 16px 12px;
         }
         
         /* Ensure gradient shows in popup */
         #popup .box-container .box.selected {
-            background: linear-gradient(180deg, rgba(242, 46, 190, 0.2), rgba(170, 0, 212, 0.2)) !important;
+            background: linear-gradient(180deg, rgb(242, 46, 190), rgb(170, 0, 212)) !important;
         }
         
         /* Force gradient for single buy-course box with selected class */
         .box-container .box.buy-course.selected:only-child {
-            background: linear-gradient(180deg, rgba(242, 46, 190, 0.2), rgba(170, 0, 212, 0.2)) !important;
+            background: linear-gradient(180deg, rgb(242, 46, 190), rgb(170, 0, 212)) !important;
+        }
+        
+        /* Make popup background transparent when there's only one box */
+        #popup:has(.box-container .box:only-child) {
+            background: transparent !important;
         }
 
         .box-container .box:not(.selected) {
@@ -314,7 +319,7 @@ function selectable_boxes_shortcode() {
         /* Ensure single selected box shows gradient */
         .box-container .box.buy-course:only-child.selected,
         .box-container .box.enroll-course:only-child.selected {
-            background: linear-gradient(180deg, rgba(242, 46, 190, 0.2), rgba(170, 0, 212, 0.2)) !important;
+            background: linear-gradient(180deg, rgb(242, 46, 190), rgb(170, 0, 212)) !important;
         }
 
         .box-container .box.no-button button {
@@ -556,7 +561,7 @@ function selectable_boxes_shortcode() {
             /* Ensure single Buy Course box shows gradient on mobile */
             .box-container .box.buy-course:only-child.selected,
             .box-container .box.buy-course:only-child {
-                background: linear-gradient(180deg, rgba(242, 46, 190, 0.2), rgba(170, 0, 212, 0.2)) !important;
+                background: linear-gradient(180deg, rgb(242, 46, 190), rgb(170, 0, 212)) !important;
                 border: none !important;
                 opacity: 1 !important;
             }
