@@ -17,6 +17,12 @@ add_filter('fkcart_disabled_post_types', function ($post_types) {
 function selectable_boxes_shortcode() {
     global $post;
     $post_id = $post ? $post->ID : 0;
+    
+    // Debug log to verify shortcode is being called
+    error_log('=== SELECTABLE BOXES SHORTCODE CALLED ===');
+    error_log('Post ID: ' . $post_id);
+    error_log('Request URI: ' . $_SERVER['REQUEST_URI']);
+    error_log('Is AJAX: ' . (wp_doing_ajax() ? 'Yes' : 'No'));
 
     // Fetch ACF fields
     $course_product_link = get_field('field_6821879221940', $post_id);
@@ -754,6 +760,15 @@ right: 40%!important;
 
         document.addEventListener('DOMContentLoaded', function () {
             console.log('DOM loaded, initializing selectable boxes');
+            
+            // Send debug log to server
+            if (typeof jQuery !== 'undefined') {
+                jQuery.post('<?php echo admin_url('admin-ajax.php'); ?>', {
+                    action: 'log_js_debug',
+                    message: 'Selectable boxes JS initialized at: ' + window.location.href,
+                    nonce: '<?php echo wp_create_nonce('log_js_debug'); ?>'
+                });
+            }
             const enrollBox = document.querySelector('.enroll-course');
             const courseBox = document.querySelector('.buy-course');
             const isMobile = window.innerWidth <= 767;
@@ -1117,6 +1132,12 @@ right: 40%!important;
                             console.log('Button element:', this);
                             console.log('Is in popup?:', this.closest('#popup') !== null);
                             
+                            // Send log to server
+                            jQuery.post('<?php echo admin_url('admin-ajax.php'); ?>', {
+                                action: 'log_js_debug',
+                                message: 'Button clicked! Product ID: ' + this.getAttribute('data-product-id') + ', Is popup: ' + (this.closest('#popup') !== null)
+                            });
+                            
                             e.preventDefault();
                             const productId = this.getAttribute('data-product-id');
                             const isEnrollButton = this.closest('.enroll-course') !== null;
@@ -1206,6 +1227,13 @@ right: 40%!important;
             
             // Initial check for buttons
             console.log('=== SELECTABLE BOXES PLUGIN INITIALIZED ===');
+            
+            // Send initialization log to server
+            jQuery.post('<?php echo admin_url('admin-ajax.php'); ?>', {
+                action: 'log_js_debug', 
+                message: 'Plugin initialized. Total add-to-cart buttons found: ' + document.querySelectorAll('.add-to-cart-button').length
+            });
+            
             attachCartListenersToButtons();
             
             // Check for dynamically loaded content periodically
@@ -1289,10 +1317,16 @@ right: 40%!important;
 
 // Add start date to cart item data
 add_filter('woocommerce_add_cart_item_data', function ($cart_item_data, $product_id, $variation_id, $quantity) {
+    error_log('=== CART ITEM DATA FILTER CALLED ===');
+    error_log('Product ID: ' . $product_id);
+    error_log('POST data: ' . print_r($_POST, true));
+    
     if (isset($_POST['start_date']) && !empty($_POST['start_date'])) {
         $start_date = sanitize_text_field($_POST['start_date']);
         $cart_item_data['start_date'] = $start_date;
         error_log('Added start_date to cart item: ' . $start_date);
+    } else {
+        error_log('No start_date in POST data');
     }
     return $cart_item_data;
 }, 10, 4);
@@ -1334,6 +1368,68 @@ add_action('woocommerce_email_order_meta', function ($order, $sent_to_admin, $pl
 }, 10, 4);
 
 add_shortcode('selectable_boxes', 'selectable_boxes_shortcode');
+
+// Handle JavaScript debug logs via AJAX
+add_action('wp_ajax_log_js_debug', 'handle_js_debug_log');
+add_action('wp_ajax_nopriv_log_js_debug', 'handle_js_debug_log');
+
+function handle_js_debug_log() {
+    $message = isset($_POST['message']) ? sanitize_text_field($_POST['message']) : 'No message';
+    error_log('=== JS DEBUG LOG ===');
+    error_log($message);
+    wp_send_json_success('Logged');
+}
+
+// Handle AJAX add to cart with debug logs
+add_action('wp_ajax_woocommerce_add_to_cart', 'handle_ajax_add_to_cart_debug');
+add_action('wp_ajax_nopriv_woocommerce_add_to_cart', 'handle_ajax_add_to_cart_debug');
+
+function handle_ajax_add_to_cart_debug() {
+    error_log('=== AJAX ADD TO CART REQUEST RECEIVED ===');
+    error_log('Request method: ' . $_SERVER['REQUEST_METHOD']);
+    error_log('POST data: ' . print_r($_POST, true));
+    error_log('Product ID from request: ' . (isset($_POST['product_id']) ? $_POST['product_id'] : 'Not set'));
+    error_log('Start date from request: ' . (isset($_POST['start_date']) ? $_POST['start_date'] : 'Not set'));
+    
+    // Check if product ID is provided
+    if (!isset($_POST['product_id']) || empty($_POST['product_id'])) {
+        error_log('ERROR: No product ID provided');
+        wp_send_json_error('No product ID provided');
+        return;
+    }
+    
+    $product_id = absint($_POST['product_id']);
+    $quantity = isset($_POST['quantity']) ? absint($_POST['quantity']) : 1;
+    
+    error_log('Processing product ID: ' . $product_id . ', Quantity: ' . $quantity);
+    
+    // Try to add to cart
+    $cart_item_key = WC()->cart->add_to_cart($product_id, $quantity);
+    
+    if ($cart_item_key) {
+        error_log('SUCCESS: Product added to cart. Cart item key: ' . $cart_item_key);
+        
+        // Get cart fragments
+        ob_start();
+        woocommerce_mini_cart();
+        $mini_cart = ob_get_clean();
+        
+        $data = array(
+            'fragments' => apply_filters('woocommerce_add_to_cart_fragments', array(
+                'div.widget_shopping_cart_content' => '<div class="widget_shopping_cart_content">' . $mini_cart . '</div>',
+            )),
+            'cart_hash' => WC()->cart->get_cart_hash(),
+            'success' => true,
+            'product_id' => $product_id
+        );
+        
+        error_log('Sending success response with cart hash: ' . $data['cart_hash']);
+        wp_send_json($data);
+    } else {
+        error_log('ERROR: Failed to add product to cart');
+        wp_send_json_error('Failed to add product to cart');
+    }
+}
 
 /**
  * Shortcode to display course product prices with sale price below regular price
