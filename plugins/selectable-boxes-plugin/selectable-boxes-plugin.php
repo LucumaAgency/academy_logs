@@ -636,6 +636,27 @@ right: 40%!important;
     </style>
 
     <script>
+        // Debug immediately when script loads
+        console.log('=== SELECTABLE BOXES SCRIPT LOADED (MAIN PAGE) ===');
+        <?php error_log('=== JAVASCRIPT BLOCK RENDERED IN SHORTCODE ==='); ?>
+        
+        // Check jQuery availability
+        if (typeof jQuery === 'undefined') {
+            console.error('CRITICAL: jQuery is not available!');
+            // Try to log to server without jQuery
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '<?php echo admin_url('admin-ajax.php'); ?>', true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.send('action=log_js_debug&message=ERROR: jQuery not found on main page');
+        } else {
+            console.log('jQuery is available, version:', jQuery.fn.jquery);
+            // Log to server
+            jQuery.post('<?php echo admin_url('admin-ajax.php'); ?>', {
+                action: 'log_js_debug',
+                message: 'Main page script loaded. jQuery: ' + jQuery.fn.jquery + ', URL: ' + window.location.href
+            });
+        }
+        
         let selectedDate = '';
         let wasCartOpened = false;
         let wasCartManuallyClosed = false;
@@ -885,12 +906,21 @@ right: 40%!important;
             });
 
             document.querySelectorAll('.add-to-cart-button').forEach(button => {
+                console.log('Attaching listener to button:', button);
                 button.addEventListener('click', async function (e) {
-                    console.log('=== ADD TO CART BUTTON CLICKED ===');
+                    console.log('=== ADD TO CART BUTTON CLICKED (MAIN) ===');
                     console.log('Button element:', this);
                     console.log('Button HTML:', this.outerHTML);
                     console.log('Parent container:', this.closest('.box')?.className);
                     console.log('Is in popup?:', this.closest('#popup') !== null);
+                    
+                    // Send click log to server
+                    if (typeof jQuery !== 'undefined') {
+                        jQuery.post('<?php echo admin_url('admin-ajax.php'); ?>', {
+                            action: 'log_js_debug',
+                            message: 'MAIN BUTTON CLICKED! Product: ' + this.getAttribute('data-product-id')
+                        });
+                    }
                     
                     e.preventDefault();
                     const productId = this.getAttribute('data-product-id');
