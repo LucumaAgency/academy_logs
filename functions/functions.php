@@ -705,12 +705,6 @@ function popup_selectable_boxes_shortcode() {
                 }
                 
                 console.log('=== POPUP DEBUG END ===');
-                
-                // Call the global popup open handler if it exists
-                if (window.onPopupOpen) {
-                    console.log('Calling onPopupOpen from selectable-boxes-plugin...');
-                    window.onPopupOpen();
-                }
             }, 300); // Aumentado a 300ms para asegurar que el DOM esté listo
         }
 
