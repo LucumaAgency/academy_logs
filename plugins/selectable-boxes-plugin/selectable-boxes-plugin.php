@@ -1094,11 +1094,22 @@ right: 40%!important;
             
             // Function to attach event listeners to dynamically loaded content (for popups)
             function attachCartListenersToButtons() {
-                console.log('Checking for unattached add-to-cart buttons...');
-                document.querySelectorAll('.add-to-cart-button').forEach(button => {
+                const buttons = document.querySelectorAll('.add-to-cart-button');
+                if (buttons.length > 0) {
+                    console.log('=== CHECKING ADD-TO-CART BUTTONS ===');
+                    console.log('Total buttons found:', buttons.length);
+                }
+                
+                buttons.forEach((button, index) => {
                     // Check if this button already has our listener attached
                     if (!button.dataset.listenerAttached) {
-                        console.log('Found unattached button, attaching listener:', button);
+                        console.log(`Button #${index} needs listener:`, {
+                            element: button,
+                            productId: button.getAttribute('data-product-id'),
+                            text: button.querySelector('.button-text')?.textContent,
+                            isInPopup: button.closest('#popup') !== null,
+                            parentClass: button.closest('.box')?.className
+                        });
                         button.dataset.listenerAttached = 'true';
                         
                         button.addEventListener('click', async function (e) {
@@ -1193,23 +1204,83 @@ right: 40%!important;
                 });
             }
             
+            // Initial check for buttons
+            console.log('=== SELECTABLE BOXES PLUGIN INITIALIZED ===');
+            attachCartListenersToButtons();
+            
             // Check for dynamically loaded content periodically
-            setInterval(attachCartListenersToButtons, 1000);
+            setInterval(() => {
+                console.log('Periodic check for new buttons...');
+                attachCartListenersToButtons();
+            }, 2000);
             
             // Also check when DOM changes (for popup scenarios)
             const observer = new MutationObserver((mutations) => {
+                let hasNewNodes = false;
                 mutations.forEach((mutation) => {
                     if (mutation.addedNodes.length > 0) {
-                        setTimeout(attachCartListenersToButtons, 100);
+                        // Check if any of the added nodes contain our elements
+                        mutation.addedNodes.forEach(node => {
+                            if (node.nodeType === 1) { // Element node
+                                if (node.id === 'popup' || node.querySelector?.('.add-to-cart-button')) {
+                                    console.log('Detected new content with buttons or popup!');
+                                    hasNewNodes = true;
+                                }
+                            }
+                        });
                     }
                 });
+                if (hasNewNodes) {
+                    setTimeout(() => {
+                        console.log('DOM changed, checking for new buttons...');
+                        attachCartListenersToButtons();
+                    }, 100);
+                }
             });
             
             // Observe the body for changes
+            console.log('Starting DOM observer...');
             observer.observe(document.body, {
                 childList: true,
                 subtree: true
             });
+            
+            // Global function to handle popup opening (called by showPopup)
+            window.onPopupOpen = function() {
+                console.log('=== POPUP OPENED - ATTACHING LISTENERS ===');
+                setTimeout(() => {
+                    attachCartListenersToButtons();
+                    
+                    // Also check for date buttons in popup
+                    const popupDateButtons = document.querySelectorAll('#popup .date-btn');
+                    console.log('Date buttons in popup:', popupDateButtons.length);
+                    
+                    popupDateButtons.forEach(btn => {
+                        if (!btn.dataset.dateListenerAttached) {
+                            btn.dataset.dateListenerAttached = 'true';
+                            btn.addEventListener('click', function(e) {
+                                e.stopPropagation();
+                                if (!this.disabled && !this.classList.contains('sold-out')) {
+                                    document.querySelectorAll('#popup .date-btn').forEach(b => b.classList.remove('selected'));
+                                    this.classList.add('selected');
+                                    window.selectedDate = this.getAttribute('data-date') || this.textContent.trim();
+                                    console.log('Popup date selected:', window.selectedDate);
+                                }
+                            });
+                        }
+                    });
+                }, 500);
+            };
+            
+            // Override showPopup if it exists
+            if (typeof window.showPopup === 'function') {
+                const originalShowPopup = window.showPopup;
+                window.showPopup = function() {
+                    console.log('ShowPopup intercepted!');
+                    originalShowPopup.apply(this, arguments);
+                    if (window.onPopupOpen) window.onPopupOpen();
+                };
+            }
         });
     </script>
     <?php
