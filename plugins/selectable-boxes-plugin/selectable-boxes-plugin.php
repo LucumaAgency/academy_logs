@@ -639,23 +639,16 @@ right: 40%!important;
 }
     </style>
 
-    <script>
-        // Create a global function for testing
-        window.testAddToCart = function(productId) {
-            console.log('testAddToCart called with product:', productId);
-            alert('Test function called! Product ID: ' + productId);
-            
-            // Try to send AJAX request
-            if (typeof jQuery !== 'undefined') {
-                jQuery.post('<?php echo admin_url('admin-ajax.php'); ?>', {
-                    action: 'log_js_debug',
-                    message: 'testAddToCart called for product: ' + productId
-                }, function(response) {
-                    console.log('Server response:', response);
-                });
-            }
-            return false; // Prevent form submission
-        };
+    <script type="text/javascript">
+        // Immediately define the function
+        (function() {
+            window.testAddToCart = function(productId) {
+                alert('Button clicked! Product ID: ' + productId);
+                console.log('testAddToCart called with product:', productId);
+                return false;
+            };
+            console.log('testAddToCart function defined:', typeof window.testAddToCart);
+        })();
         
         // Debug immediately when script loads
         console.log('=== SELECTABLE BOXES SCRIPT LOADED (MAIN PAGE) ===');
@@ -1420,6 +1413,40 @@ add_action('woocommerce_email_order_meta', function ($order, $sent_to_admin, $pl
 }, 10, 4);
 
 add_shortcode('selectable_boxes', 'selectable_boxes_shortcode');
+
+// Add emergency JavaScript to footer
+add_action('wp_footer', function() {
+    ?>
+    <script type="text/javascript">
+    console.log('=== EMERGENCY FOOTER SCRIPT LOADED ===');
+    
+    // Define the test function globally
+    window.testAddToCart = function(productId) {
+        alert('Emergency function called! Product ID: ' + productId);
+        console.log('testAddToCart from footer:', productId);
+        
+        // Try to add to cart via AJAX
+        if (typeof jQuery !== 'undefined') {
+            jQuery.post('<?php echo admin_url('admin-ajax.php'); ?>', {
+                action: 'woocommerce_add_to_cart',
+                product_id: productId,
+                quantity: 1
+            }, function(response) {
+                console.log('Add to cart response:', response);
+                if (response.fragments) {
+                    alert('Product added to cart!');
+                    // Refresh cart
+                    jQuery(document.body).trigger('wc_fragment_refresh');
+                }
+            });
+        }
+        return false;
+    };
+    
+    console.log('testAddToCart defined in footer:', typeof window.testAddToCart);
+    </script>
+    <?php
+}, 999);
 
 // Handle JavaScript debug logs via AJAX
 add_action('wp_ajax_log_js_debug', 'handle_js_debug_log');
