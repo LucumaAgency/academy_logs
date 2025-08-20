@@ -206,7 +206,11 @@ function selectable_boxes_shortcode() {
                                 <p class="description">Pay once, own the course forever.</p>
                             </div>
                         </div>
-                        <button class="add-to-cart-button" data-product-id="<?php echo esc_attr($course_product_id); ?>" <?php echo $is_out_of_stock ? 'disabled' : ''; ?> style="<?php echo empty($enroll_product_link) ? 'display: block;' : ''; ?>">
+                        <button class="add-to-cart-button" 
+                                data-product-id="<?php echo esc_attr($course_product_id); ?>" 
+                                <?php echo $is_out_of_stock ? 'disabled' : ''; ?> 
+                                style="<?php echo empty($enroll_product_link) ? 'display: block;' : ''; ?>"
+                                onclick="return handleAddToCart(this, '<?php echo esc_attr($course_product_id); ?>', false);">
                             <span class="button-text"><?php echo $is_out_of_stock ? 'Sold Out' : 'Buy Course'; ?></span>
                             <span class="loader" style="display: none;"></span>
                         </button>
@@ -249,11 +253,10 @@ function selectable_boxes_shortcode() {
                     <button class="add-to-cart-button" 
                             data-product-id="<?php echo esc_attr($enroll_product_id); ?>" 
                             <?php echo $is_enroll_out_of_stock ? 'disabled' : ''; ?>
-                            onclick="return testAddToCart('<?php echo esc_attr($enroll_product_id); ?>');">
+                            onclick="return handleAddToCart(this, '<?php echo esc_attr($enroll_product_id); ?>', true);">
                         <span class="button-text"><?php echo $is_enroll_out_of_stock ? 'Sold Out' : 'Enroll Now'; ?></span>
                         <span class="loader" style="display: none;"></span>
                     </button>
-                    <?php error_log('Button rendered with testAddToCart onclick for product: ' . $enroll_product_id); ?>
                     [seats_remaining]
                 </div>
                 <?php endif; ?>
@@ -640,15 +643,110 @@ right: 40%!important;
     </style>
 
     <script type="text/javascript">
-        // Immediately define the function
-        (function() {
-            window.testAddToCart = function(productId) {
-                alert('Button clicked! Product ID: ' + productId);
-                console.log('testAddToCart called with product:', productId);
+        // Define the unified add to cart handler
+        window.handleAddToCart = function(button, productId, isEnroll) {
+            console.log('=== handleAddToCart called ===');
+            console.log('Product ID:', productId);
+            console.log('Is Enroll:', isEnroll);
+            console.log('Button element:', button);
+            
+            // Prevent default action
+            event.preventDefault();
+            event.stopPropagation();
+            
+            // Check if jQuery is available
+            if (typeof jQuery === 'undefined') {
+                alert('Error: jQuery is not loaded. Please refresh the page.');
                 return false;
+            }
+            
+            // Get selected date if it's an enroll button
+            var selectedDate = '';
+            if (isEnroll) {
+                var selectedDateBtn = button.closest('.enroll-course').querySelector('.date-btn.selected');
+                if (selectedDateBtn) {
+                    selectedDate = selectedDateBtn.getAttribute('data-date') || selectedDateBtn.textContent.trim();
+                    console.log('Selected date:', selectedDate);
+                } else {
+                    // Try to find first available date
+                    var firstDateBtn = button.closest('.enroll-course').querySelector('.date-btn:not(.sold-out)');
+                    if (firstDateBtn) {
+                        firstDateBtn.classList.add('selected');
+                        selectedDate = firstDateBtn.getAttribute('data-date') || firstDateBtn.textContent.trim();
+                        console.log('Auto-selected first available date:', selectedDate);
+                    }
+                }
+                
+                if (!selectedDate) {
+                    alert('Please select a start date before adding to cart.');
+                    return false;
+                }
+            }
+            
+            // Show loading state
+            button.classList.add('loading');
+            
+            // Prepare AJAX data
+            var data = {
+                action: 'woocommerce_add_to_cart',
+                product_id: productId,
+                quantity: 1
             };
-            console.log('testAddToCart function defined:', typeof window.testAddToCart);
-        })();
+            
+            if (isEnroll && selectedDate) {
+                data.start_date = selectedDate;
+            }
+            
+            console.log('Sending AJAX request with data:', data);
+            
+            // Send AJAX request
+            jQuery.post('<?php echo admin_url('admin-ajax.php'); ?>', data, function(response) {
+                console.log('AJAX response received:', response);
+                
+                if (response && response.fragments) {
+                    console.log('Product added successfully');
+                    
+                    // Trigger WooCommerce events
+                    jQuery(document.body).trigger('added_to_cart', [response.fragments, response.cart_hash]);
+                    jQuery(document.body).trigger('wc_fragment_refresh');
+                    
+                    // Open FunnelKit cart
+                    setTimeout(function() {
+                        jQuery(document).trigger('fkcart_open_cart');
+                        jQuery('.fkcart-cart-toggle').trigger('click');
+                        
+                        // Try specific FunnelKit method
+                        if (typeof window.fkcart_open_cart === 'function') {
+                            window.fkcart_open_cart();
+                        }
+                    }, 500);
+                    
+                } else if (response && response.error && response.product_url) {
+                    // Fallback for products needing options
+                    console.log('Using fallback method');
+                    var cartUrl = '<?php echo wc_get_cart_url(); ?>?add-to-cart=' + productId;
+                    if (isEnroll && selectedDate) {
+                        cartUrl += '&start_date=' + encodeURIComponent(selectedDate);
+                    }
+                    
+                    jQuery.get(cartUrl, function() {
+                        jQuery(document.body).trigger('wc_fragment_refresh');
+                        jQuery(document).trigger('fkcart_open_cart');
+                    });
+                } else {
+                    console.error('Error in response:', response);
+                    alert('Error adding product to cart. Please try again.');
+                }
+            }).fail(function(jqXHR, textStatus) {
+                console.error('AJAX failed:', textStatus);
+                alert('Error communicating with server. Please try again.');
+            }).always(function() {
+                // Remove loading state
+                button.classList.remove('loading');
+            });
+            
+            return false;
+        };
         
         // Debug immediately when script loads
         console.log('=== SELECTABLE BOXES SCRIPT LOADED (MAIN PAGE) ===');
@@ -1420,83 +1518,90 @@ add_action('wp_footer', function() {
     <script type="text/javascript">
     console.log('=== FOOTER CART SCRIPT LOADED ===');
     
-    // Define the real add to cart function
+    // Keep the old function for backward compatibility but redirect to new one
     window.testAddToCart = function(productId) {
-        console.log('Add to cart clicked for product:', productId);
-        
-        // Get selected date from the page
-        var selectedDate = '';
-        var selectedDateBtn = document.querySelector('.enroll-course .date-btn.selected');
-        if (selectedDateBtn) {
-            selectedDate = selectedDateBtn.getAttribute('data-date') || selectedDateBtn.textContent.trim();
-            console.log('Selected date found:', selectedDate);
-        } else {
-            console.log('No date selected, checking for first available date');
-            var firstDateBtn = document.querySelector('.enroll-course .date-btn:not(.sold-out)');
-            if (firstDateBtn) {
-                selectedDate = firstDateBtn.getAttribute('data-date') || firstDateBtn.textContent.trim();
-                console.log('Using first available date:', selectedDate);
-            }
-        }
-        
-        if (!selectedDate) {
-            alert('Please select a start date before adding to cart.');
-            return false;
-        }
-        
-        // Show loading on button
-        var button = event.target.closest('button');
+        console.log('testAddToCart redirecting to handleAddToCart');
+        var button = event ? event.target.closest('button') : null;
         if (button) {
-            button.classList.add('loading');
+            return window.handleAddToCart(button, productId, true);
         }
-        
-        // Add to cart via AJAX with start date
-        if (typeof jQuery !== 'undefined') {
-            jQuery.post('<?php echo admin_url('admin-ajax.php'); ?>', {
+        return false;
+    };
+    
+    // Ensure handleAddToCart is available globally (fallback definition)
+    if (typeof window.handleAddToCart === 'undefined') {
+        window.handleAddToCart = function(button, productId, isEnroll) {
+            console.log('Fallback handleAddToCart called');
+            
+            if (!button) {
+                button = event.target.closest('button');
+            }
+            
+            // Check jQuery
+            if (typeof jQuery === 'undefined') {
+                alert('Error: jQuery is not loaded. Please refresh the page.');
+                return false;
+            }
+            
+            // Get selected date if enroll
+            var selectedDate = '';
+            if (isEnroll) {
+                var selectedDateBtn = document.querySelector('.enroll-course .date-btn.selected');
+                if (!selectedDateBtn) {
+                    selectedDateBtn = document.querySelector('.enroll-course .date-btn:not(.sold-out)');
+                    if (selectedDateBtn) {
+                        selectedDateBtn.classList.add('selected');
+                    }
+                }
+                if (selectedDateBtn) {
+                    selectedDate = selectedDateBtn.getAttribute('data-date') || selectedDateBtn.textContent.trim();
+                }
+                
+                if (!selectedDate) {
+                    alert('Please select a start date before adding to cart.');
+                    return false;
+                }
+            }
+            
+            // Show loading
+            if (button) {
+                button.classList.add('loading');
+            }
+            
+            // AJAX request
+            var data = {
                 action: 'woocommerce_add_to_cart',
                 product_id: productId,
-                quantity: 1,
-                start_date: selectedDate
-            }, function(response) {
-                console.log('Add to cart response:', response);
+                quantity: 1
+            };
+            
+            if (isEnroll && selectedDate) {
+                data.start_date = selectedDate;
+            }
+            
+            jQuery.post('<?php echo admin_url('admin-ajax.php'); ?>', data, function(response) {
                 if (response && response.fragments) {
-                    console.log('Product added successfully, refreshing cart');
-                    
-                    // Trigger WooCommerce cart update events
                     jQuery(document.body).trigger('added_to_cart', [response.fragments, response.cart_hash]);
                     jQuery(document.body).trigger('wc_fragment_refresh');
-                    jQuery(document.body).trigger('wc_update_cart');
                     
-                    // Try to open FunnelKit cart
                     setTimeout(function() {
-                        // Try multiple methods to open the cart
                         jQuery(document).trigger('fkcart_open_cart');
                         jQuery('.fkcart-cart-toggle').trigger('click');
-                        
-                        // Also try the FunnelKit specific method
-                        if (typeof window.fkcart_open_cart === 'function') {
-                            window.fkcart_open_cart();
-                        }
                     }, 500);
-                    
-                } else if (response && response.error) {
-                    console.error('Error adding to cart:', response.error);
-                    alert('Error adding product to cart. Please try again.');
                 } else {
-                    console.error('Unexpected response:', response);
+                    alert('Error adding product to cart. Please try again.');
                 }
-            }).fail(function(jqXHR, textStatus) {
-                console.error('AJAX failed:', textStatus);
+            }).fail(function() {
                 alert('Error communicating with server. Please try again.');
             }).always(function() {
-                // Hide loading
                 if (button) {
                     button.classList.remove('loading');
                 }
             });
-        }
-        return false;
-    };
+            
+            return false;
+        };
+    }
     
     console.log('Real add to cart function defined:', typeof window.testAddToCart);
     </script>
