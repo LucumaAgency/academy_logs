@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: LMS Enrollment Sync
- * Description: Automatically enrolls users in MasterStudy LMS courses based on WooCommerce product purchases, using existing course-product relationships.
- * Version: 1.1.0
+ * Description: Automatically enrolls users in MasterStudy LMS courses based on WooCommerce product purchases, using Course Product Manager relationships.
+ * Version: 2.0.0
  * Author: Carlos Murillo
  * Author URI: https://lucumaagency.com/
  * License: GPL-2.0+
@@ -42,56 +42,112 @@ add_action('init', function () {
 }, 5);
 
 /**
- * Get product-to-course mappings from stm-courses metadata
+ * Get product-to-course mappings using Course Product Manager relationships
+ * Now supports any product type that has a related_stm_course_id meta
  */
 function lms_enrollment_sync_get_mappings() {
     $mappings = [];
+    
+    // Method 1: Get all products that have a related_stm_course_id meta
+    // This catches ALL product types managed by Course Product Manager
     $args = [
+        'post_type' => 'product',
+        'post_status' => 'publish',
+        'posts_per_page' => -1,
+        'meta_query' => [
+            [
+                'key' => 'related_stm_course_id',
+                'compare' => 'EXISTS'
+            ]
+        ]
+    ];
+    
+    $products = get_posts($args);
+    
+    if (!empty($products)) {
+        foreach ($products as $product_post) {
+            $course_id = get_post_meta($product_post->ID, 'related_stm_course_id', true);
+            
+            if ($course_id && is_numeric($course_id)) {
+                // Verify the course exists and is published
+                $course = get_post($course_id);
+                if ($course && $course->post_type === 'stm-courses' && $course->post_status === 'publish') {
+                    $mappings[] = [
+                        'product_id' => absint($product_post->ID),
+                        'course_id' => absint($course_id),
+                    ];
+                    error_log('LMS Enrollment Sync: Mapping found - Product ID ' . $product_post->ID . ' (' . $product_post->post_title . ') to Course ID ' . $course_id);
+                } else {
+                    error_log('LMS Enrollment Sync: Invalid or unpublished course ID ' . $course_id . ' for product ID ' . $product_post->ID);
+                }
+            }
+        }
+    }
+    
+    // Method 2: Also check from courses side for backward compatibility
+    // This ensures we don't miss any relationships
+    $courses_args = [
         'post_type' => 'stm-courses',
         'post_status' => 'publish',
         'posts_per_page' => -1,
         'fields' => 'ids',
     ];
 
-    $courses = get_posts($args);
-    if (empty($courses)) {
-        error_log('LMS Enrollment Sync: No published stm-courses found for mapping.');
-        return $mappings;
-    }
+    $courses = get_posts($courses_args);
+    
+    if (!empty($courses)) {
+        foreach ($courses as $course_id) {
+            // Get related course product
+            $course_product_id = get_post_meta($course_id, 'related_course_product_id', true);
+            if ($course_product_id && is_numeric($course_product_id)) {
+                // Check if not already in mappings
+                $already_mapped = false;
+                foreach ($mappings as $mapping) {
+                    if ($mapping['product_id'] == $course_product_id && $mapping['course_id'] == $course_id) {
+                        $already_mapped = true;
+                        break;
+                    }
+                }
+                
+                if (!$already_mapped) {
+                    $product = wc_get_product($course_product_id);
+                    if ($product && $product->get_status() === 'publish') {
+                        $mappings[] = [
+                            'product_id' => absint($course_product_id),
+                            'course_id' => absint($course_id),
+                        ];
+                        error_log('LMS Enrollment Sync: Additional mapping found - Course Product ID ' . $course_product_id . ' to Course ID ' . $course_id);
+                    }
+                }
+            }
 
-    foreach ($courses as $course_id) {
-        // Get related course product
-        $course_product_id = get_post_meta($course_id, 'related_course_product_id', true);
-        if ($course_product_id && is_numeric($course_product_id)) {
-            $product = wc_get_product($course_product_id);
-            if ($product && $product->get_status() === 'publish') {
-                $mappings[] = [
-                    'product_id' => absint($course_product_id),
-                    'course_id' => absint($course_id),
-                ];
-                error_log('LMS Enrollment Sync: Mapping found - Product ID ' . $course_product_id . ' to Course ID ' . $course_id);
-            } else {
-                error_log('LMS Enrollment Sync: Invalid or unpublished product ID ' . $course_product_id . ' for course ID ' . $course_id);
+            // Get related webinar product
+            $webinar_product_id = get_post_meta($course_id, 'related_webinar_product_id', true);
+            if ($webinar_product_id && is_numeric($webinar_product_id)) {
+                // Check if not already in mappings
+                $already_mapped = false;
+                foreach ($mappings as $mapping) {
+                    if ($mapping['product_id'] == $webinar_product_id && $mapping['course_id'] == $course_id) {
+                        $already_mapped = true;
+                        break;
+                    }
+                }
+                
+                if (!$already_mapped) {
+                    $product = wc_get_product($webinar_product_id);
+                    if ($product && $product->get_status() === 'publish') {
+                        $mappings[] = [
+                            'product_id' => absint($webinar_product_id),
+                            'course_id' => absint($course_id),
+                        ];
+                        error_log('LMS Enrollment Sync: Additional mapping found - Webinar Product ID ' . $webinar_product_id . ' to Course ID ' . $course_id);
+                    }
+                }
             }
         }
-
-        // Get related webinar product
-        $webinar_product_id = get_post_meta($course_id, 'related_webinar_product_id', true);
-        if ($webinar_product_id && is_numeric($webinar_product_id)) {
-            $product = wc_get_product($webinar_product_id);
-            if ($product && $product->get_status() === 'publish') {
-                $mappings[] = [
-                    'product_id' => absint($webinar_product_id),
-                    'course_id' => absint($course_id),
-                ];
-                error_log('LMS Enrollment Sync: Mapping found - Webinar Product ID ' . $webinar_product_id . ' to Course ID ' . $course_id);
-            } else {
-                error_log('LMS Enrollment Sync: Invalid or unpublished webinar product ID ' . $webinar_product_id . ' for course ID ' . $course_id);
-            }
-        }
     }
 
-    error_log('LMS Enrollment Sync: Retrieved ' . count($mappings) . ' product-to-course mappings.');
+    error_log('LMS Enrollment Sync: Retrieved ' . count($mappings) . ' total product-to-course mappings.');
     return $mappings;
 }
 
@@ -144,7 +200,8 @@ function lms_enrollment_sync_enroll_user($order_id) {
         foreach ($mappings as $mapping) {
             if ($product_id == $mapping['product_id']) {
                 $course_id = $mapping['course_id'];
-                error_log('Match found: Product ID ' . $product_id . ' mapped to Course ID ' . $course_id);
+                $product_name = $item->get_name();
+                error_log('Match found: Product ID ' . $product_id . ' (' . $product_name . ') mapped to Course ID ' . $course_id);
 
                 // Verify course exists
                 $course = get_post($course_id);
